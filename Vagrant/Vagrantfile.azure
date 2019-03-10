@@ -1,0 +1,155 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+# $ vagrant box add azure https://github.com/azure/vagrant-azure/raw/v2.0/dummy.box --provider azure
+# $ vagrant plugin install vagrant-azure
+# <!> Vagrant-azure created
+#  * network security group will have ssh/22 and 8443 port opened in any/any rule
+#  * virtual net address space: 10.0.0.0/16
+#  * vagrant private or public network settings are ignored
+# => must update bootstrap script manually or handle after
+#    (`fleetctl config set --address https://192.168.38.105:8412`)
+#   + bro interface
+
+VAGRANTFILE_API_VERSION = "2"
+ENV['VAGRANT_DEFAULT_PROVIDER'] = 'azure'
+
+Vagrant.configure("2") do |config|
+  config.vm.box = 'azure'
+  config.ssh.private_key_path = '~/.ssh/id_rsa-azure'
+
+  config.vm.provider :azure do |azure, override|
+    # each of the below values will default to use the env vars named as below if not specified explicitly
+    azure.tenant_id = ENV['AZURE_TENANT_ID']
+    azure.client_id = ENV['AZURE_CLIENT_ID']
+    azure.client_secret = ENV['AZURE_CLIENT_SECRET']
+    azure.subscription_id = ENV['AZURE_SUBSCRIPTION_ID']
+    azure.instance_ready_timeout = 600
+    azure.vm_password = 'mypassword_to_change'
+    azure.nsg_name = 'DetectionLab-nsg'
+    azure.location = 'eastus'
+    # https://github.com/Azure/vagrant-azure/issues/67
+    #override.vm.synced_folder ".", "/vagrant", disabled: true
+    override.vm.synced_folder ".", "/vagrant", type: "rsync", rsync__exclude: ".git/"
+  end
+
+  config.vm.define "logger" do |cfg|
+    cfg.vm.hostname = "logger"
+    config.vm.provision :shell, path: "bootstrap.sh"
+    #cfg.vm.network :private_network, ip: "192.168.38.105", gateway: "192.168.38.1", dns: "8.8.8.8"
+    #cfg.vm.network "public_network", ip: "10.168.38.105"
+
+    config.vm.provider :azure do |azure, override|
+      # Azure
+      azure.vm_image_urn = 'Canonical:UbuntuServer:16.04-LTS:latest'
+    end
+  end
+
+  config.vm.define "dc" do |cfg|
+    cfg.vm.hostname = "dc"
+    cfg.vm.boot_timeout = 600
+    # use the plaintext WinRM transport and force it to use basic authentication.
+    # NB this is needed because the default negotiate transport stops working
+    #    after the domain controller is installed.
+    #    see https://groups.google.com/forum/#!topic/vagrant-up/sZantuCM0q4
+    cfg.winrm.transport = :plaintext
+    cfg.vm.communicator = "winrm"
+    cfg.winrm.basic_auth_only = true
+    cfg.winrm.timeout = 300
+    cfg.winrm.retry_limit = 20
+    #cfg.vm.network :private_network, ip: "192.168.38.102", gateway: "192.168.38.1"
+    config.vm.provider :azure do |azure, override|
+      # Azure
+      azure.vm_image_urn = 'DetectionLab-win2016-2019-03-09'
+    end
+
+    #cfg.vm.provision "shell", path: "scripts/fix-second-network.ps1", privileged: false, args: "192.168.38.102"
+    cfg.vm.provision "shell", path: "scripts/provision.ps1", privileged: false
+    cfg.vm.provision "reload"
+    cfg.vm.provision "shell", path: "scripts/provision.ps1", privileged: false
+    cfg.vm.provision "shell", path: "scripts/download_palantir_wef.ps1", privileged: false
+    cfg.vm.provision "shell", path: "scripts/download_palantir_osquery.ps1", privileged: false
+    cfg.vm.provision "shell", path: "scripts/install-splunkuf.ps1", privileged: false
+    cfg.vm.provision "shell", path: "scripts/install-inputsconf.ps1", privileged: false
+    cfg.vm.provision "shell", path: "scripts/install-utilities.ps1", privileged: false
+    cfg.vm.provision "shell", path: "scripts/install-redteam.ps1", privileged: false
+    cfg.vm.provision "shell", path: "scripts/install-choco-extras.ps1", privileged: false
+    cfg.vm.provision "shell", path: "scripts/install-osquery.ps1", privileged: false
+    cfg.vm.provision "shell", path: "scripts/install-caldera-agent.ps1", privileged: false
+    cfg.vm.provision "shell", path: "scripts/install-sysinternals.ps1", privileged: false
+    cfg.vm.provision "shell", path: "scripts/configure-ou.ps1", privileged: false
+    cfg.vm.provision "shell", path: "scripts/configure-wef-gpo.ps1", privileged: false
+    cfg.vm.provision "shell", path: "scripts/configure-powershelllogging.ps1", privileged: false
+    cfg.vm.provision "shell", path: "scripts/configure-AuditingPolicyGPOs.ps1", privileged: false
+    cfg.vm.provision "shell", path: "scripts/install-autorunstowineventlog.ps1", privileged: false
+    cfg.vm.provision "shell", inline: 'wevtutil el | Select-String -notmatch "Microsoft-Windows-LiveId" | Foreach-Object {wevtutil cl "$_"}', privileged: false
+    cfg.vm.provision "shell", inline: "Set-SmbServerConfiguration -AuditSmb1Access $true -Force", privileged: false
+  end
+
+  config.vm.define "wef" do |cfg|
+    cfg.vm.hostname = "wef"
+    cfg.vm.boot_timeout = 600
+    cfg.vm.communicator = "winrm"
+    cfg.winrm.basic_auth_only = true
+    cfg.winrm.timeout = 300
+    cfg.winrm.retry_limit = 20
+    #cfg.vm.network :private_network, ip: "192.168.38.103", gateway: "192.168.38.1", dns: "192.168.38.102"
+    config.vm.provider :azure do |azure, override|
+      # Azure
+      azure.vm_image_urn = 'DetectionLab-win2016-2019-03-09'
+    end
+
+    #cfg.vm.provision "shell", path: "scripts/fix-second-network.ps1", privileged: false, args: "-ip 192.168.38.103 -dns 192.168.38.102"
+    cfg.vm.provision "shell", path: "scripts/provision.ps1", privileged: false
+    cfg.vm.provision "reload"
+    cfg.vm.provision "shell", path: "scripts/provision.ps1", privileged: false
+    cfg.vm.provision "shell", path: "scripts/download_palantir_wef.ps1", privileged: false
+    cfg.vm.provision "shell", path: "scripts/download_palantir_osquery.ps1", privileged: false
+    cfg.vm.provision "shell", inline: 'wevtutil el | Select-String -notmatch "Microsoft-Windows-LiveId" | Foreach-Object {wevtutil cl "$_"}', privileged: false
+    cfg.vm.provision "shell", path: "scripts/install-wefsubscriptions.ps1", privileged: false
+    cfg.vm.provision "shell", path: "scripts/install-splunkuf.ps1", privileged: false
+    cfg.vm.provision "shell", path: "scripts/install-windows_ta.ps1", privileged: false
+    cfg.vm.provision "shell", path: "scripts/install-inputsconf.ps1", privileged: false
+    cfg.vm.provision "shell", path: "scripts/install-utilities.ps1", privileged: false
+    cfg.vm.provision "shell", path: "scripts/install-redteam.ps1", privileged: false
+    cfg.vm.provision "shell", path: "scripts/install-choco-extras.ps1", privileged: false
+    cfg.vm.provision "shell", path: "scripts/install-osquery.ps1", privileged: false
+    cfg.vm.provision "shell", path: "scripts/install-caldera-agent.ps1", privileged: false
+    cfg.vm.provision "shell", path: "scripts/install-sysinternals.ps1", privileged: false
+    cfg.vm.provision "shell", path: "scripts/configure-pslogstranscriptsshare.ps1", privileged: false
+    cfg.vm.provision "shell", path: "scripts/install-autorunstowineventlog.ps1", privileged: false
+    cfg.vm.provision "shell", inline: "Set-SmbServerConfiguration -AuditSmb1Access $true -Force", privileged: false
+    cfg.vm.provision "shell", path: "scripts/install-microsoft-ata.ps1", privileged: false
+  end
+
+  config.vm.define "win10" do |cfg|
+    cfg.vm.hostname = "win10"
+    cfg.vm.boot_timeout = 600
+    cfg.vm.communicator = "winrm"
+    cfg.winrm.basic_auth_only = true
+    cfg.winrm.timeout = 300
+    cfg.winrm.retry_limit = 20
+    #cfg.vm.network :private_network, ip: "192.168.38.104", gateway: "192.168.38.1", dns: "192.168.38.102"
+    config.vm.provider :azure do |azure, override|
+      # Azure
+      azure.vm_image_urn = 'DetectionLab-win10-2019-03-09'
+    end
+
+    #cfg.vm.provision "shell", path: "scripts/fix-second-network.ps1", privileged: false, args: "-ip 192.168.38.104 -dns 192.168.38.102"
+    cfg.vm.provision "shell", path: "scripts/provision.ps1", privileged: false
+    cfg.vm.provision "reload"
+    cfg.vm.provision "shell", path: "scripts/provision.ps1", privileged: false
+    cfg.vm.provision "shell", path: "scripts/download_palantir_wef.ps1", privileged: false
+    cfg.vm.provision "shell", path: "scripts/download_palantir_osquery.ps1", privileged: false
+    cfg.vm.provision "shell", path: "scripts/MakeWindows10GreatAgain.ps1", privileged: false
+    cfg.vm.provision "shell", inline: 'wevtutil el | Select-String -notmatch "Microsoft-Windows-LiveId" | Foreach-Object {wevtutil cl "$_"}', privileged: false
+    cfg.vm.provision "shell", path: "scripts/install-splunkuf.ps1", privileged: false
+    cfg.vm.provision "shell", path: "scripts/install-utilities.ps1", privileged: false
+    cfg.vm.provision "shell", path: "scripts/install-redteam.ps1", privileged: false
+    cfg.vm.provision "shell", path: "scripts/install-choco-extras.ps1", privileged: false
+    cfg.vm.provision "shell", path: "scripts/install-osquery.ps1", privileged: false
+    cfg.vm.provision "shell", path: "scripts/install-caldera-agent.ps1", privileged: false
+    cfg.vm.provision "shell", path: "scripts/install-inputsconf.ps1", privileged: false
+    cfg.vm.provision "shell", path: "scripts/install-sysinternals.ps1", privileged: false
+    cfg.vm.provision "shell", path: "scripts/install-autorunstowineventlog.ps1", privileged: false
+  end
+end

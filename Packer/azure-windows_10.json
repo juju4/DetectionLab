@@ -1,0 +1,83 @@
+{
+ "variables": {
+    "azure_ad_tenant_id": "{{env `az_tenant_id`}}",
+    "azure_subscription_id": "{{env `az_subscription_id`}}",
+    "app_id": "{{env `az_client_id`}}",
+    "client_secret": "{{env `az_client_secret`}}",
+    "storage_account": "packer"
+  },
+  "builders": [
+    {
+      "type": "azure-arm",
+      "subscription_id": "{{user `azure_subscription_id`}}",
+      "tenant_id": "{{user `azure_ad_tenant_id`}}",
+      "object_id": "{{user `object_id`}}",
+      "client_id": "{{user `app_id`}}",
+      "client_secret": "{{user `client_secret`}}",
+
+      "cloud_environment_name": "AzurePublicCloud",
+      "location": "eastus",
+      "vm_size": "Standard_D1",
+
+      "managed_image_resource_group_name": "Testing",
+      "managed_image_name": "DetectionLab-win10-{{isotime \"2006-01-02\"}}",
+
+      "os_type": "Windows",
+      "image_publisher": "MicrosoftWindowsDesktop",
+      "image_offer": "Windows-10",
+      "image_sku": "rs5-pro",
+      "image_version": "latest",
+
+      "communicator": "winrm",
+      "winrm_use_ssl": "true",
+      "winrm_insecure": "true",
+      "winrm_timeout": "3m",
+      "winrm_username": "packer"
+    }
+  ],
+  "provisioners": [
+    {
+      "type": "powershell",
+      "inline": [
+        "./scripts/disable-screensaver.ps1",
+        "./scripts/disable-winrm.ps1",
+        "./scripts/enable-winrm.ps1",
+        "./scripts/microsoft-updates.bat",
+        "./scripts/win-updates.ps1"
+      ]
+    },
+    {
+      "type": "windows-shell",
+      "execute_command": "{{ .Vars }} cmd /c \"{{ .Path }}\"",
+      "scripts": [
+        "./scripts/enable-rdp.bat"
+      ]
+    },
+    {
+      "type": "powershell",
+      "scripts": [
+        "./scripts/debloat-windows.ps1"
+      ]
+    },
+    {
+      "type": "windows-restart"
+    },
+    {
+      "type": "powershell",
+      "scripts": [
+        "./scripts/set-powerplan.ps1",
+        "./scripts/docker/disable-windows-defender.ps1"
+      ]
+    },
+    {
+      "type": "windows-shell",
+      "execute_command": "{{ .Vars }} cmd /c \"{{ .Path }}\"",
+      "scripts": [
+        "./scripts/pin-powershell.bat",
+        "./scripts/set-winrm-automatic.bat",
+        "./scripts/compile-dotnet-assemblies.bat",
+        "./scripts/uac-enable.bat"
+      ]
+    }
+  ]
+}

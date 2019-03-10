@@ -5,8 +5,8 @@ sed -i 's#http://archive.ubuntu.com#http://us.archive.ubuntu.com#g' /etc/apt/sou
 
 install_mongo_db_apt_key() {
   # Install key and apt source for MongoDB
-  apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv EA312927
-  echo "deb http://repo.mongodb.org/apt/ubuntu $(lsb_release -sc)/mongodb-org/3.2 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-3.2.list
+  apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 2930ADAE8CAF5059EE73BB4B58712A2291FA4AD5
+  echo "deb http://repo.mongodb.org/apt/ubuntu $(lsb_release -sc)/mongodb-org/3.6 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-3.6.list
 }
 
 install_python_apt_source() {
@@ -17,7 +17,7 @@ install_python_apt_source() {
 apt_install_prerequisites() {
   # Install prerequisites and useful tools
   apt-get update
-  apt-get install -y jq whois build-essential git docker docker-compose unzip mongodb-org python3.6 python3.6-dev
+  apt-get install -y jq whois build-essential git docker docker-compose unzip mongodb-org python3.6 python3.6-dev -q
   # Install pip for Python 3.6
   curl https://bootstrap.pypa.io/get-pip.py | sudo -H python3.6
 }
@@ -51,7 +51,7 @@ install_golang() {
   if ! which go > /dev/null; then
     echo "Installing Golang v.1.12..."
     cd /home/vagrant || exit
-    wget https://dl.google.com/go/go1.12.linux-amd64.tar.gz
+    wget --quiet https://dl.google.com/go/go1.12.linux-amd64.tar.gz
     tar -C /usr/local -xzf go1.12.linux-amd64.tar.gz
     mkdir /root/go
   else
@@ -143,10 +143,10 @@ download_palantir_osquery_config() {
 }
 
 import_osquery_config_into_fleet() {
-  wget https://github.com/kolide/fleet/releases/download/2.0.1/fleet_2.0.1.zip
+  wget --quiet https://github.com/kolide/fleet/releases/download/2.0.1/fleet_2.0.1.zip
   unzip fleet_2.0.1.zip -d fleet_2.0.1
   cp fleet_2.0.1/linux/fleetctl /usr/local/bin/fleetctl && chmod +x /usr/local/bin/fleetctl
-  fleetctl config set --address https://192.168.38.105:8412
+  fleetctl config set --address https://127.0.0.1:8412
   fleetctl config set --tls-skip-verify true
   fleetctl setup --email admin@detectionlab.network --password 'admin123#' --org-name DetectionLab
   fleetctl login --email admin@detectionlab.network --password 'admin123#'
@@ -186,7 +186,7 @@ install_caldera() {
     systemctl enable mongod.service
     cd /home/vagrant/caldera || exit
     mkdir -p dep/crater/crater
-    wget https://github.com/mitre/caldera-crater/releases/download/v0.1.0/CraterMainWin8up.exe -O /home/vagrant/caldera/dep/crater/crater/CraterMain.exe
+    wget --quiet https://github.com/mitre/caldera-crater/releases/download/v0.1.0/CraterMainWin8up.exe -O /home/vagrant/caldera/dep/crater/crater/CraterMain.exe
     service caldera start
     systemctl enable caldera.service
   fi
@@ -338,7 +338,7 @@ main() {
   install_mongo_db_apt_key
   install_python_apt_source
   apt_install_prerequisites
-  fix_eth1_static_ip
+  #fix_eth1_static_ip
   install_golang
   install_splunk
   install_fleet
