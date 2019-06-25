@@ -1,6 +1,6 @@
 # Purpose: Install additional packages from Chocolatey.
 
-Write-Host "Installing additional Choco packages..."
+Write-Host "$('[{0:HH:mm}]' -f (Get-Date)) Installing additional Choco packages..."
 
 If (-not (Test-Path "C:\ProgramData\chocolatey")) {
   Write-Host "Installing Chocolatey"
@@ -10,6 +10,7 @@ If (-not (Test-Path "C:\ProgramData\chocolatey")) {
 }
 
 Write-Host "Installing Chocolatey extras..."
-choco install -y wireshark
+choco install -y --limit-output --no-progress wireshark
+choco install -y --limit-output --no-progress winpcap
 
-Write-Host "Choco addons complete!"
+Write-Host "$('[{0:HH:mm}]' -f (Get-Date)) Choco addons complete!"

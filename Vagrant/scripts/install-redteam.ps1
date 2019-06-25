@@ -1,23 +1,11 @@
 # Purpose: Installs Mimikatz and Powersploit into c:\Tools\Mimikatz. Used to install redteam related tooling.
 
-Write-Host "Installing Red Team Tooling..."
+Write-Host "$('[{0:HH:mm}]' -f (Get-Date)) Installing Red Team Tooling..."
 
-
-# Disable Windows Defender realtime scanning before downloading Mimikatz and drop the firewall
-If ($env:computername -eq "win10") {
-  If (Test-Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender")
-  {
-    Remove-Item "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender" -Recurse -Force
-  }
-  gpupdate /force | Out-String
-  Write-Host "Disabling Windows Defender Realtime Monitoring..."
-  Set-MpPreference -ExclusionPath C:\commander.exe, C:\Tools
-  set-MpPreference -DisableRealtimeMonitoring $true
-  Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled False
-}
+# Windows Defender should be disabled already by O&O ShutUp10
 
 # Purpose: Downloads and unzips a copy of the latest Mimikatz trunk
-Write-Host "Determining latest release of Mimikatz..."
+Write-Host "$('[{0:HH:mm}]' -f (Get-Date)) Determining latest release of Mimikatz..."
 # GitHub requires TLS 1.2 as of 2/27
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 $tag = (Invoke-WebRequest "https://api.github.com/repos/gentilkiwi/mimikatz/releases" -UseBasicParsing | ConvertFrom-Json)[0].tag_name
@@ -34,17 +22,30 @@ else
 }
 
 # Download and unzip a copy of PowerSploit
-Write-Host "Downloading Powersploit..."
+Write-Host "$('[{0:HH:mm}]' -f (Get-Date)) Downloading Powersploit..."
 # GitHub requires TLS 1.2 as of 2/27
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-$powersploitDownloadUrl = "https://github.com/PowerShellMafia/PowerSploit/archive/master.zip"
+$powersploitDownloadUrl = "https://github.com/PowerShellMafia/PowerSploit/archive/dev.zip"
 $powersploitRepoPath = "C:\Users\vagrant\AppData\Local\Temp\powersploit.zip"
 if (-not (Test-Path $powersploitRepoPath)) {
   Invoke-WebRequest -Uri "$powersploitDownloadUrl" -OutFile $powersploitRepoPath
   Expand-Archive -path "$powersploitRepoPath" -destinationpath 'c:\Tools\PowerSploit' -Force
-  Copy-Item "c:\Tools\PowerSploit\PowerSploit-master\*" "$Env:windir\System32\WindowsPowerShell\v1.0\Modules" -Recurse -Force
+  Copy-Item "c:\Tools\PowerSploit\PowerSploit-dev\*" "$Env:windir\System32\WindowsPowerShell\v1.0\Modules" -Recurse -Force
 } else {
   Write-Host "PowerSploit was already installed. Moving On."
 }
 
-Write-Host "Red Team tooling installation complete!"
+# Download and unzip a copy of Atomic Red Team
+Write-Host "$('[{0:HH:mm}]' -f (Get-Date)) Downloading Atomic Red Team..."
+# GitHub requires TLS 1.2 as of 2/27
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+$atomicRedTeamDownloadUrl = "https://github.com/redcanaryco/atomic-red-team/archive/master.zip"
+$atomicRedTeamRepoPath = "C:\Users\vagrant\AppData\Local\Temp\atomic_red_team.zip"
+if (-not (Test-Path $atomicRedTeamRepoPath)) {
+  Invoke-WebRequest -Uri "$atomicRedTeamDownloadUrl" -OutFile "$atomicRedTeamRepoPath"
+  Expand-Archive -path "$atomicRedTeamRepoPath" -destinationpath 'c:\Tools\Atomic Red Team' -Force
+} else {
+  Write-Host "Atomic Red Team was already installed. Moving On."
+}
+
+Write-Host "$('[{0:HH:mm}]' -f (Get-Date)) Red Team tooling installation complete!"

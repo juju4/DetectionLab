@@ -25,8 +25,11 @@
 .PARAMETER PackerPath
   The full path to the packer executable. Default is C:\Hashicorp\packer.exe
 
+.PARAMETER PackerOnly
+  This switch skips deploying boxes with vagrant after being built by packer
+
 .PARAMETER VagrantOnly
-  This switch skips building packer boxes and instead downloads from www.detectionlab.network
+  This switch skips building packer boxes and instead downloads from Vagrant Cloud
 
 .EXAMPLE
   build.ps1 -ProviderName virtualbox
@@ -48,19 +51,12 @@ Param(
   [ValidateSet('virtualbox', 'vmware_desktop')]
   [string]$ProviderName,
   [string]$PackerPath = 'C:\Hashicorp\packer.exe',
+  [switch]$PackerOnly,
   [switch]$VagrantOnly
 )
 
 $DL_DIR = Split-Path -Parent -Path $MyInvocation.MyCommand.Definition
 $LAB_HOSTS = ('logger', 'dc', 'wef', 'win10')
-
-# Register-EngineEvent PowerShell.Exiting -SupportEvent -Action {
-#   Set-Location $DL_DIR
-# }
-
-# Register-ObjectEvent -InputObject ([System.Console]) -EventName CancelKeyPress -Action {
-#   Set-Location $DL_DIR
-# }
 
 function install_checker {
   param(
@@ -78,7 +74,12 @@ function install_checker {
 }
 
 function check_packer {
-  #Check for packer at $PackerPath
+  # Check for packer using Get-Command
+  if ((Get-Command packer).Path) {
+    $PackerPath = (Get-Command packer).Path
+    Write-Output "Packer found at $PackerPath"
+  }
+  # Check for packer at $PackerPath
   if (!(Test-Path $PackerPath)) {
     Write-Error "Packer not found at $PackerPath"
     Write-Output 'Re-run the script setting the PackerPath parameter to the location of packer'
@@ -177,55 +178,6 @@ function list_providers {
   return $ProviderName
 }
 
-function download_boxes {
-  Write-Host '[download_boxes] Running..'
-  if ($PackerProvider -eq 'virtualbox') {
-    $win10Hash = 'c03f10f21b8d79e6acca2b2965b23046'
-    $win2016Hash = '231b54077d4396cad01e4cd60651b1e0'
-  }
-  if ($PackerProvider -eq 'vmware') {
-    $win10Hash = 'b334c3ba5be3b29840567ffe368db5fe'
-    $win2016Hash = '2bbaf5a1177e0499dc3aacdb0246eb38'
-  }
-
-  $win10Filename = "windows_10_$PackerProvider.box"
-  $win2016Filename = "windows_2016_$PackerProvider.box"
-
-  $wc = New-Object System.Net.WebClient
-  Write-Host "[download_boxes] Downloading $win10Filename"
-  $wc.DownloadFile("https://www.detectionlab.network/$win10Filename", "$DL_DIR\Boxes\$win10Filename")
-  Write-Host "[download_boxes] Downloading $win2016Filename"
-  $wc.DownloadFile("https://www.detectionlab.network/$win2016Filename", "$DL_DIR\Boxes\$win2016Filename")
-  $wc.Dispose()
-
-  if (-Not (Test-Path "$DL_DIR\Boxes\$win2016Filename")) {
-    Write-Error 'Windows 2016 box is missing from the Boxes directory. Qutting.'
-    break
-  }
-  if (-Not (Test-Path "$DL_DIR\Boxes\$win10Filename")) {
-    Write-Error 'Windows 10 box is missing from the Boxes directory. Qutting.'
-    break
-  }
-
-  Write-Host "[download_boxes] Getting filehash for: $win10Filename"
-  $win10Filehash = (Get-FileHash -Path "$DL_DIR\Boxes\$win10Filename" -Algorithm MD5).Hash
-  Write-Host "[download_boxes] Getting filehash for: $win2016Filename"
-  $win2016Filehash = (Get-FileHash -Path "$DL_DIR\Boxes\$win2016Filename" -Algorithm MD5).Hash
-
-  Write-Host '[download_boxes] Checking Filehashes..'
-  if ($win10hash -ne $win10Filehash) {
-    Write-Error 'Hash mismatch on windows_10_virtualbox.box'
-    Write-Error 'The boxes may have been updated since you last ran the build script. Try updating the git repository to retrieve the latest hashes.'
-    break
-  }
-  if ($win2016hash -ne $win2016Filehash) {
-    Write-Error 'Hash mismatch on windows_2016_virtualbox.box'
-    Write-Error 'The boxes may have been updated since you last ran the build script. Try updating the git repository to retrieve the latest hashes.'
-    break
-  }
-  Write-Host '[download_boxes] Finished.'
-}
-
 function preflight_checks {
   Write-Host '[preflight_checks] Running..'
   # Check to see that no boxes exist
@@ -243,51 +195,53 @@ function preflight_checks {
       break
     }
   }
-  Write-Host '[preflight_checks] Checking if Vagrant is installed'
-  check_vagrant
+  if (!($PackerOnly)) {
+    Write-Host '[preflight_checks] Checking if Vagrant is installed'
+    check_vagrant
 
-  Write-Host '[preflight_checks] Checking for pre-existing boxes..'
-  if ((Get-ChildItem "$DL_DIR\Boxes\*.box").Count -gt 0) {
-    Write-Host 'You seem to have at least one .box file present in the Boxes directory already. If you would like fresh boxes downloaded, please remove all files from the Boxes directory and re-run this script.'
-  }
-
-  # Check to see that no vagrant instances exist
-  Write-Host '[preflight_checks] Checking for vagrant instances..'
-  $CurrentDir = Get-Location
-  Set-Location "$DL_DIR\Vagrant"
-  if (($(vagrant status) | Select-String -Pattern "not[ _]created").Count -ne 4) {
-    Write-Error 'You appear to have already created at least one Vagrant instance. This script does not support already created instances. Please either destroy the existing instances or follow the build steps in the README to continue.'
-    break
-  }
-  Set-Location $CurrentDir
-
-  # Check available disk space. Recommend 80GB free, warn if less
-  Write-Host '[preflight_checks] Checking disk space..'
-  $drives = Get-PSDrive | Where-Object {$_.Provider -like '*FileSystem*'}
-  $drivesList = @()
-
-  forEach ($drive in $drives) {
-    if ($drive.free -lt 80GB) {
-      $DrivesList = $DrivesList + $drive
+    Write-Host '[preflight_checks] Checking for pre-existing boxes..'
+    if ((Get-ChildItem "$DL_DIR\Boxes\*.box").Count -gt 0) {
+      Write-Host 'You seem to have at least one .box file present in the Boxes directory already. If you would like fresh boxes downloaded, please remove all files from the Boxes directory and re-run this script.'
     }
-  }
 
-  if ($DrivesList.Count -gt 0) {
-    Write-Output "The following drives have less than 80GB of free space. They should not be used for deploying DetectionLab"
-    forEach ($drive in $DrivesList) {
-      Write-Output "[*] $($drive.Name)"
-    }
-    Write-Output "You can safely ignore this warning if you are deploying DetectionLab to a different drive."
-  }
-
-  # Ensure the vagrant-reload plugin is installed
-  Write-Host '[preflight_checks] Checking if vagrant-reload is installed..'
-  if (-Not (vagrant plugin list | Select-String 'vagrant-reload')) {
-    Write-Output 'The vagrant-reload plugin is required and not currently installed. This script will attempt to install it now.'
-    (vagrant plugin install 'vagrant-reload')
-    if ($LASTEXITCODE -ne 0) {
-      Write-Error 'Unable to install the vagrant-reload plugin. Please try to do so manually and re-run this script.'
+    # Check to see that no vagrant instances exist
+    Write-Host '[preflight_checks] Checking for vagrant instances..'
+    $CurrentDir = Get-Location
+    Set-Location "$DL_DIR\Vagrant"
+    if (($(vagrant status) | Select-String -Pattern "not[ _]created").Count -ne 4) {
+      Write-Error 'You appear to have already created at least one Vagrant instance. This script does not support already created instances. Please either destroy the existing instances or follow the build steps in the README to continue.'
       break
+    }
+    Set-Location $CurrentDir
+
+    # Check available disk space. Recommend 80GB free, warn if less
+    Write-Host '[preflight_checks] Checking disk space..'
+    $drives = Get-PSDrive | Where-Object {$_.Provider -like '*FileSystem*'}
+    $drivesList = @()
+
+    forEach ($drive in $drives) {
+      if ($drive.free -lt 80GB) {
+        $DrivesList = $DrivesList + $drive
+      }
+    }
+
+    if ($DrivesList.Count -gt 0) {
+      Write-Output "The following drives have less than 80GB of free space. They should not be used for deploying DetectionLab"
+      forEach ($drive in $DrivesList) {
+        Write-Output "[*] $($drive.Name)"
+      }
+      Write-Output "You can safely ignore this warning if you are deploying DetectionLab to a different drive."
+    }
+
+    # Ensure the vagrant-reload plugin is installed
+    Write-Host '[preflight_checks] Checking if vagrant-reload is installed..'
+    if (-Not (vagrant plugin list | Select-String 'vagrant-reload')) {
+      Write-Output 'The vagrant-reload plugin is required and not currently installed. This script will attempt to install it now.'
+      (vagrant plugin install 'vagrant-reload')
+      if ($LASTEXITCODE -ne 0) {
+        Write-Error 'Unable to install the vagrant-reload plugin. Please try to do so manually and re-run this script.'
+        break
+      }
     }
   }
   Write-Host '[preflight_checks] Finished.'
@@ -302,6 +256,8 @@ function packer_build_box {
   $CurrentDir = Get-Location
   Set-Location "$DL_DIR\Packer"
   Write-Output "Using Packer to build the $BOX Box. This can take 90-180 minutes depending on bandwidth and hardware."
+  $env:PACKER_LOG=1
+  $env:PACKER_LOG_PATH="$DL_DIR\Packer\packer.log"
   &$PackerPath @('build', "--only=$PackerProvider-iso", "$box.json")
   Write-Host "[packer_build_box] Finished for $Box. Got exit code: $LASTEXITCODE"
 
@@ -317,11 +273,11 @@ function move_boxes {
   Write-Host "[move_boxes] Running.."
   Move-Item -Path $DL_DIR\Packer\*.box -Destination $DL_DIR\Boxes
   if (-Not (Test-Path "$DL_DIR\Boxes\windows_10_$PackerProvider.box")) {
-    Write-Error "Windows 10 box is missing from the Boxes directory. Qutting."
+    Write-Error "Windows 10 box is missing from the Boxes directory. Quitting."
     break
   }
   if (-Not (Test-Path "$DL_DIR\Boxes\windows_2016_$PackerProvider.box")) {
-    Write-Error "Windows 2016 box is missing from the Boxes directory. Qutting."
+    Write-Error "Windows 2016 box is missing from the Boxes directory. Quitting."
     break
   }
   Write-Host "[move_boxes] Finished."
@@ -390,15 +346,10 @@ function download {
       Write-Host "Error occured on webrequest: $_"
       return $false
     }
-
   }
 }
 
 function post_build_checks {
-
-  Write-Host '[post_build_checks] Running Caldera Check.'
-  $CALDERA_CHECK = download -URL 'https://192.168.38.105:8888' -PatternToMatch '<title>CALDERA</title>'
-  Write-Host "[post_build_checks] Cladera Result: $CALDERA_CHECK"
 
   Write-Host '[post_build_checks] Running Splunk Check.'
   $SPLUNK_CHECK = download -URL 'https://192.168.38.105:8000/en-US/account/login?return_to=%2Fen-US%2F' -PatternToMatch 'This browser is not supported by Splunk'
@@ -412,10 +363,6 @@ function post_build_checks {
   $ATA_CHECK = download -URL 'https://192.168.38.103' -SuccessOn401
   Write-Host "[post_build_checks] ATA Result: $ATA_CHECK"
 
-
-  if ($CALDERA_CHECK -eq $false) {
-    Write-Warning 'Caldera failed post-build tests and may not be functioning correctly.'
-  }
   if ($SPLUNK_CHECK -eq $false) {
     Write-Warning 'Splunk failed post-build tests and may not be functioning correctly.'
   }
@@ -426,7 +373,6 @@ function post_build_checks {
     Write-Warning 'MS ATA failed post-build tests and may not be functioning correctly.'
   }
 }
-
 
 # If no ProviderName was provided, get a provider
 if ($ProviderName -eq $Null -or $ProviderName -eq "") {
@@ -441,43 +387,40 @@ else {
   $PackerProvider = 'virtualbox'
 }
 
-
 # Run check functions
 preflight_checks
 
 # Build Packer Boxes
-if ($VagrantOnly) {
-  download_boxes
-}
-else {
+if (!($VagrantOnly)) {
   packer_build_box -Box 'windows_2016'
   packer_build_box -Box 'windows_10'
   # Move Packer Boxes
   move_boxes
 }
 
-# Vagrant up each box and attempt to reload one time if it fails
-forEach ($VAGRANT_HOST in $LAB_HOSTS) {
-  Write-Host "[main] Running vagrant_up_host for: $VAGRANT_HOST"
-  $result = vagrant_up_host -VagrantHost $VAGRANT_HOST
-  Write-Host "[main] vagrant_up_host finished. Exitcode: $result"
-  if ($result -eq '0') {
-    Write-Output "Good news! $VAGRANT_HOST was built successfully!"
-  }
-  else {
-    Write-Warning "Something went wrong while attempting to build the $VAGRANT_HOST box."
-    Write-Output "Attempting to reload and reprovision the host..."
-    Write-Host "[main] Running vagrant_reload_host for: $VAGRANT_HOST"
-    $retryResult = vagrant_reload_host -VagrantHost $VAGRANT_HOST
-    if ($retryResult -ne 0) {
-      Write-Error "Failed to bring up $VAGRANT_HOST after a reload. Exiting"
-      break
+if (!($PackerOnly)) {
+  # Vagrant up each box and attempt to reload one time if it fails
+  forEach ($VAGRANT_HOST in $LAB_HOSTS) {
+    Write-Host "[main] Running vagrant_up_host for: $VAGRANT_HOST"
+    $result = vagrant_up_host -VagrantHost $VAGRANT_HOST
+    Write-Host "[main] vagrant_up_host finished. Exitcode: $result"
+    if ($result -eq '0') {
+      Write-Output "Good news! $VAGRANT_HOST was built successfully!"
     }
+    else {
+      Write-Warning "Something went wrong while attempting to build the $VAGRANT_HOST box."
+      Write-Output "Attempting to reload and reprovision the host..."
+      Write-Host "[main] Running vagrant_reload_host for: $VAGRANT_HOST"
+      $retryResult = vagrant_reload_host -VagrantHost $VAGRANT_HOST
+      if ($retryResult -ne 0) {
+        Write-Error "Failed to bring up $VAGRANT_HOST after a reload. Exiting"
+        break
+      }
+    }
+    Write-Host "[main] Finished for: $VAGRANT_HOST"
   }
-  Write-Host "[main] Finished for: $VAGRANT_HOST"
+
+  Write-Host "[main] Running post_build_checks"
+  post_build_checks
+  Write-Host "[main] Finished post_build_checks"
 }
-
-
-Write-Host "[main] Running post_build_checks"
-post_build_checks
-Write-Host "[main] Finished post_build_checks"
