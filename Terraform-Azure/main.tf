@@ -1,13 +1,18 @@
 # terraform init, plan, apply, destroy
 # Note: does not support idempotence, don't execute twice with same scope.
+# https://www.terraform.io/docs/providers/azurerm/index.html
+# latest test: terraform 0.12.7
 #
 # FIXME!
-# * apply: provisioning not working
-# Error: timeout - last error: ssh: handshake failed: ssh: unable to authenticate, attempted methods [none publickey], no supported methods remain
+# * apply: provisioning not working on Windows
+# Error: Unsupported argument [...] An argument named "connection" is not expected here.
+#    apply => Error: timeout - last error: SSH authentication failed (root@:22): ssh: handshake failed: ssh: unable to authenticate, attempted methods [none publickey], no supported methods remain
+# * apply: linux provisioning
+#	=> works but script ends with error code for some reason (post bro install and splunk restart)
 
 # Specify the provider and access details
 provider "azurerm" {
-  version = "~>1.31.0"
+  version = "~>1.33"
 #  region                  = var.region
 }
 
@@ -48,6 +53,7 @@ resource "azurerm_network_security_group" "Terraform0nsg" {
     protocol                   = "Tcp"
     source_port_range          = "*"
     destination_port_range     = "22"
+    # source_address_prefix      = "*"
     source_address_prefixes    = var.ip_whitelist
     destination_address_prefix = "*"
   }
@@ -145,15 +151,15 @@ resource "azurerm_public_ip" "logger" {
 }
 
 resource "azurerm_network_interface" "Terraform0nic" {
-  name = "DetectionLab0NIC0logger"
-  location = "eastus"
-  resource_group_name  = "${azurerm_resource_group.Terraform0rg.name}"
+  name                = "DetectionLab0NIC0logger"
+  location            = "eastus"
+  resource_group_name = "${azurerm_resource_group.Terraform0rg.name}"
 
   ip_configuration {
     name                          = "myNicConfiguration"
     subnet_id                     = "${azurerm_subnet.Terraform0subnet.id}"
     private_ip_address_allocation = "Static"
-    private_ip_address = "192.168.38.105"
+    private_ip_address            = "192.168.38.105"
     public_ip_address_id          = "${azurerm_public_ip.logger.id}"
   }
 }
@@ -203,7 +209,7 @@ resource "azurerm_virtual_machine" "Terraform0logger" {
   os_profile {
     computer_name  = "logger"
     admin_username = "azureuser"
-    admin_password = "Azureuser_pass_to_change0"
+    admin_password = "${var.linux_admin_password}"
   }
 
   os_profile_linux_config {
@@ -219,17 +225,18 @@ resource "azurerm_virtual_machine" "Terraform0logger" {
     storage_uri = "${azurerm_storage_account.Terraform0storageaccount.primary_blob_endpoint}"
   }
 
-  # https://github.com/hashicorp/terraform/issues/18042
-  connection {
-    host        = "${azurerm_public_ip.logger.fqdn}"
-    user        = "$azureuser"
-    private_key = "${file(var.private_key_path)}"
-    timeout     = "10m"
-    agent       = false
-  }
-
   # Provision
+  # https://github.com/terraform-providers/terraform-provider-azurerm/blob/master/examples/virtual-machines/provisioners/linux/main.tf
+  # https://www.terraform.io/docs/provisioners/connection.html
   provisioner "remote-exec" {
+    connection {
+      host = "${azurerm_public_ip.logger.ip_address}"
+      user     = "azureuser"
+      # password = "${local.admin_password}"
+      private_key = file(var.private_key_path)
+      # agent = false
+      # timeout = "10m"
+    }
     inline = [
       "sudo add-apt-repository universe && sudo apt-get -qq update && sudo apt-get -qq install -y git",
       "echo 'logger' | sudo tee /etc/hostname && sudo hostnamectl set-hostname logger",
@@ -243,7 +250,7 @@ resource "azurerm_virtual_machine" "Terraform0logger" {
       "sudo sed -i 's#/vagrant/resources#/opt/DetectionLab/Vagrant/resources#g' /opt/DetectionLab/Vagrant/bootstrap.sh",
       "sudo chmod +x /opt/DetectionLab/Vagrant/bootstrap.sh",
       "sudo apt-get -qq update",
-      "sudo /opt/DetectionLab/Vagrant/bootstrap.sh",
+      "sudo /opt/DetectionLab/Vagrant/bootstrap.sh 2>&1 | tee /opt/DetectionLab/Vagrant/bootstrap.log",
     ]
   }
 
@@ -265,7 +272,7 @@ resource "azurerm_network_interface" "Terraform0nic2" {
     name                          = "myNicConfiguration"
     subnet_id                     = "${azurerm_subnet.Terraform0subnet.id}"
     private_ip_address_allocation = "Static"
-    private_ip_address = "192.168.38.102"
+    private_ip_address            = "192.168.38.102"
     public_ip_address_id          = "${azurerm_public_ip.dc.id}"
   }
 }
@@ -291,7 +298,7 @@ resource "azurerm_network_interface" "Terraform0nic3" {
     name                          = "myNicConfiguration"
     subnet_id                     = "${azurerm_subnet.Terraform0subnet.id}"
     private_ip_address_allocation = "Static"
-    private_ip_address = "192.168.38.103"
+    private_ip_address            = "192.168.38.103"
     public_ip_address_id          = "${azurerm_public_ip.wef.id}"
   }
 }
@@ -317,7 +324,7 @@ resource "azurerm_network_interface" "Terraform0nic4" {
     name                          = "myNicConfiguration"
     subnet_id                     = "${azurerm_subnet.Terraform0subnet.id}"
     private_ip_address_allocation = "Static"
-    private_ip_address = "192.168.38.104"
+    private_ip_address            = "192.168.38.104"
     public_ip_address_id          = "${azurerm_public_ip.win10.id}"
   }
 }
@@ -353,10 +360,32 @@ resource "azurerm_virtual_machine" "Terraform0dc" {
   os_profile {
     computer_name  = "dc"
     admin_username = "azureuser"
-    admin_password = "Azureuser_pass_to_change0"
+    admin_password = "${var.win_admin_password}"
   }
   os_profile_windows_config {
+    provision_vm_agent        = true
     enable_automatic_upgrades = true
+
+    # https://www.terraform.io/docs/providers/azurerm/r/virtual_machine.html#winrm
+    #winrm = {
+    #  protocol = 'HTTPS'
+    #}
+
+    # Auto-Login's required to configure WinRM
+    additional_unattend_config {
+      pass         = "oobeSystem"
+      component    = "Microsoft-Windows-Shell-Setup"
+      setting_name = "AutoLogon"
+      content      = "<AutoLogon><Password><Value>${var.win_admin_password}</Value></Password><Enabled>true</Enabled><LogonCount>1</LogonCount><Username>azureuser</Username></AutoLogon>"
+    }
+
+    # Unattend config is to enable basic auth in WinRM, required for the provisioner stage.
+    additional_unattend_config {
+      pass         = "oobeSystem"
+      component    = "Microsoft-Windows-Shell-Setup"
+      setting_name = "FirstLogonCommands"
+      content      = "${file("./files/FirstLogonCommands.xml")}"
+    }
   }
 
   storage_os_disk {
@@ -371,22 +400,32 @@ resource "azurerm_virtual_machine" "Terraform0dc" {
     role = "dc"
   }
 
+  # https://github.com/terraform-providers/terraform-provider-azurerm/blob/master/examples/virtual-machines/provisioners/windows/main.tf
   provisioner "file" {
     source     = "${path.module}/scripts/"
     destination = "C:/scripts"
+## Error: Unsupported argument [...] An argument named "connection" is not expected here.
+##    apply => Error: timeout - last error: SSH authentication failed (root@:22): ssh: handshake failed: ssh: unable to authenticate, attempted methods [none publickey], no supported methods remain
 #    connection   = {
+#      host = self.public_ip
 #      type       = "winrm"
 #      user       = "${azurerm_virtual_machine.Terraform0dc.admin_username}"
-#      password   = "${var.admin_password}"
-#      agent       = "false"
+#      password   = "${var.win_admin_password}"
+#      timeout    = "10m"
+#      # NOTE: if you're using a real certificate, rather than a self-signed one, you'll want this set to `false`/to remove this.
+#      insecure = true
 #    }
   }
   provisioner "remote-exec" {
-#    connection = {
+## Error: Unsupported argument [...] An argument named "connection" is not expected here.
+#    connection   = {
+#      host = self.public_ip
 #      type       = "winrm"
 #      user       = "${azurerm_virtual_machine.Terraform0dc.admin_username}"
-#      password   = "${var.admin_password}"
-#      agent       = "false"
+#      password   = "${var.win_admin_password}"
+#      timeout    = "10m"
+#      # NOTE: if you're using a real certificate, rather than a self-signed one, you'll want this set to `false`/to remove this.
+#      insecure = true
 #    }
     inline = [
       #"powershell.exe Set-ExecutionPolicy RemoteSigned -force",
@@ -414,7 +453,7 @@ resource "azurerm_virtual_machine" "Terraform0wef" {
   os_profile {
     computer_name  = "wef"
     admin_username = "azureuser"
-    admin_password = "Azureuser_pass_to_change0"
+    admin_password = "${var.win_admin_password}"
   }
   os_profile_windows_config {
     enable_automatic_upgrades = true
@@ -452,7 +491,7 @@ resource "azurerm_virtual_machine" "Terraform0win10" {
   os_profile {
     computer_name  = "win10"
     admin_username = "azureuser"
-    admin_password = "Azureuser_pass_to_change0"
+    admin_password = "${var.win_admin_password}"
   }
   os_profile_windows_config {
     enable_automatic_upgrades = true

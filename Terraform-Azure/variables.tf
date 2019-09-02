@@ -17,6 +17,18 @@ variable "shared_credentials_file" {
   default     = "/home/username/.azure/credentials"
 }
 
+variable "linux_admin_password" {
+  description = "Linux Admin Password"
+  type        = string
+  default     = "Azureuser_pass_to_change0"
+}
+
+variable "win_admin_password" {
+  description = "Windows Admin Password"
+  type        = string
+  default     = "Azureuser_pass_to_change0"
+}
+
 variable "public_key_name" {
   description = "A name for SSH Keypair to use to auth to logger. Can be anything you specify."
   default     = "id_logger"
@@ -28,6 +40,7 @@ variable "public_key_path" {
   default     = "/home/username/.ssh/id_logger.pub"
 }
 
+# Note: must use ssh key without passphrase. not supported by Terraform.
 variable "private_key_path" {
   description = "Path to the private key to use to authenticate to logger."
   type        = string
