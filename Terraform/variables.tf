@@ -52,7 +52,7 @@ data "aws_ami" "logger_ami" {
 
   filter {
     name   = "name"
-    values = ["ubuntu/images/hvm-ssd/ubuntu-xenial-16.04-amd64-server-20180912"]
+    values = ["ubuntu/images/hvm-ssd/ubuntu-bionic-18.04-amd64-server-20191113"]
   }
 }
 
@@ -90,25 +90,23 @@ data "aws_ami" "win10_ami" {
 
 # If you are building your own AMIs, replace the default values below with
 # the AMI IDs
-# The default values for us-west-1 have been provied for you
-# You will have to change the default values if you use a different region
 variable "logger_ami" {
   type    = string
-  default = "ami-0ad16744583f21877"
+  default = ""
 }
 
 variable "dc_ami" {
   type    = string
-  default = "ami-03e2df055c632a0dd"
+  default = ""
 }
 
 variable "wef_ami" {
   type    = string
-  default = "ami-03c82482c03a740c5"
+  default = ""
 }
 
 variable "win10_ami" {
   type    = string
-  default = "ami-0a4644e74768900f7"
+  default = ""
 }
 
