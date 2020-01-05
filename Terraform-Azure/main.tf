@@ -28,21 +28,21 @@ resource "azurerm_virtual_network" "Terraform0network" {
   name = "DetectionLab0Vnet"
   address_space = ["192.168.0.0/16"]
   location = "eastus"
-  resource_group_name = "${azurerm_resource_group.Terraform0rg.name}"
+  resource_group_name = azurerm_resource_group.Terraform0rg.name
 }
 
 # Create a subnet to launch our instances into
 resource "azurerm_subnet" "Terraform0subnet" {
   name                 = "DetectionLab0Subnet"
-  resource_group_name  = "${azurerm_resource_group.Terraform0rg.name}"
-  virtual_network_name = "${azurerm_virtual_network.Terraform0network.name}"
+  resource_group_name  = azurerm_resource_group.Terraform0rg.name
+  virtual_network_name = azurerm_virtual_network.Terraform0network.name
   address_prefix       = "192.168.38.0/24"
 }
 
 resource "azurerm_network_security_group" "Terraform0nsg" {
   name                = "DetectionLab0nsg"
   location = "eastus"
-  resource_group_name  = "${azurerm_resource_group.Terraform0rg.name}"
+  resource_group_name  = azurerm_resource_group.Terraform0rg.name
 
   # SSH access
   security_rule {
@@ -141,7 +141,7 @@ resource "azurerm_network_security_group" "Terraform0nsg" {
 resource "azurerm_public_ip" "logger" {
   name                = "DetectionLab0PublicIP0logger"
   location            = "eastus"
-  resource_group_name = "${azurerm_resource_group.Terraform0rg.name}"
+  resource_group_name = azurerm_resource_group.Terraform0rg.name
   allocation_method   = "Static"
 
   tags = {
@@ -153,14 +153,14 @@ resource "azurerm_public_ip" "logger" {
 resource "azurerm_network_interface" "Terraform0nic" {
   name                = "DetectionLab0NIC0logger"
   location            = "eastus"
-  resource_group_name = "${azurerm_resource_group.Terraform0rg.name}"
+  resource_group_name = azurerm_resource_group.Terraform0rg.name
 
   ip_configuration {
     name                          = "myNicConfiguration"
-    subnet_id                     = "${azurerm_subnet.Terraform0subnet.id}"
+    subnet_id                     = azurerm_subnet.Terraform0subnet.id
     private_ip_address_allocation = "Static"
     private_ip_address            = "192.168.38.105"
-    public_ip_address_id          = "${azurerm_public_ip.logger.id}"
+    public_ip_address_id          = azurerm_public_ip.logger.id
   }
 }
 
@@ -168,7 +168,7 @@ resource "azurerm_network_interface" "Terraform0nic" {
 resource "random_id" "randomId" {
   keepers = {
     # Generate a new ID only when a new resource group is defined
-    resource_group_name  = "${azurerm_resource_group.Terraform0rg.name}"
+    resource_group_name  = azurerm_resource_group.Terraform0rg.name
   }
   byte_length = 8
 }
@@ -176,7 +176,7 @@ resource "random_id" "randomId" {
 resource "azurerm_storage_account" "Terraform0storageaccount" {
   name                = "diag${random_id.randomId.hex}"
   location = "eastus"
-  resource_group_name  = "${azurerm_resource_group.Terraform0rg.name}"
+  resource_group_name  = azurerm_resource_group.Terraform0rg.name
   account_replication_type = "LRS"
   account_tier = "Standard"
 }
@@ -185,8 +185,8 @@ resource "azurerm_storage_account" "Terraform0storageaccount" {
 resource "azurerm_virtual_machine" "Terraform0logger" {
   name = "logger"
   location = "eastus"
-  resource_group_name  = "${azurerm_resource_group.Terraform0rg.name}"
-  network_interface_ids = ["${azurerm_network_interface.Terraform0nic.id}"]
+  resource_group_name  = azurerm_resource_group.Terraform0rg.name
+  network_interface_ids = [azurerm_network_interface.Terraform0nic.id]
   vm_size               = "Standard_DS1_v2"
 
   delete_os_disk_on_termination = true
@@ -209,7 +209,7 @@ resource "azurerm_virtual_machine" "Terraform0logger" {
   os_profile {
     computer_name  = "logger"
     admin_username = "azureuser"
-    admin_password = "${var.linux_admin_password}"
+    admin_password = var.linux_admin_password
   }
 
   os_profile_linux_config {
@@ -222,7 +222,7 @@ resource "azurerm_virtual_machine" "Terraform0logger" {
 
   boot_diagnostics {
     enabled     = "true"
-    storage_uri = "${azurerm_storage_account.Terraform0storageaccount.primary_blob_endpoint}"
+    storage_uri = azurerm_storage_account.Terraform0storageaccount.primary_blob_endpoint
   }
 
   # Provision
@@ -230,9 +230,9 @@ resource "azurerm_virtual_machine" "Terraform0logger" {
   # https://www.terraform.io/docs/provisioners/connection.html
   provisioner "remote-exec" {
     connection {
-      host = "${azurerm_public_ip.logger.ip_address}"
+      host = azurerm_public_ip.logger.ip_address
       user     = "azureuser"
-      # password = "${local.admin_password}"
+      # password = local.admin_password
       private_key = file(var.private_key_path)
       # agent = false
       # timeout = "10m"
@@ -266,21 +266,21 @@ resource "azurerm_virtual_machine" "Terraform0logger" {
 resource "azurerm_network_interface" "Terraform0nic2" {
   name = "DetectionLab0NIC0dc"
   location = "eastus"
-  resource_group_name  = "${azurerm_resource_group.Terraform0rg.name}"
+  resource_group_name  = azurerm_resource_group.Terraform0rg.name
 
   ip_configuration {
     name                          = "myNicConfiguration"
-    subnet_id                     = "${azurerm_subnet.Terraform0subnet.id}"
+    subnet_id                     = azurerm_subnet.Terraform0subnet.id
     private_ip_address_allocation = "Static"
     private_ip_address            = "192.168.38.102"
-    public_ip_address_id          = "${azurerm_public_ip.dc.id}"
+    public_ip_address_id          = azurerm_public_ip.dc.id
   }
 }
 
 resource "azurerm_public_ip" "dc" {
   name                = "DetectionLab0PublicIP0dc"
   location            = "eastus"
-  resource_group_name = "${azurerm_resource_group.Terraform0rg.name}"
+  resource_group_name = azurerm_resource_group.Terraform0rg.name
   allocation_method   = "Static"
 
   tags = {
@@ -292,21 +292,21 @@ resource "azurerm_public_ip" "dc" {
 resource "azurerm_network_interface" "Terraform0nic3" {
   name = "DetectionLab0NIC0wef"
   location = "eastus"
-  resource_group_name  = "${azurerm_resource_group.Terraform0rg.name}"
+  resource_group_name  = azurerm_resource_group.Terraform0rg.name
 
   ip_configuration {
     name                          = "myNicConfiguration"
-    subnet_id                     = "${azurerm_subnet.Terraform0subnet.id}"
+    subnet_id                     = azurerm_subnet.Terraform0subnet.id
     private_ip_address_allocation = "Static"
     private_ip_address            = "192.168.38.103"
-    public_ip_address_id          = "${azurerm_public_ip.wef.id}"
+    public_ip_address_id          = azurerm_public_ip.wef.id
   }
 }
 
 resource "azurerm_public_ip" "wef" {
   name                = "DetectionLab0PublicIP0wef"
   location            = "eastus"
-  resource_group_name = "${azurerm_resource_group.Terraform0rg.name}"
+  resource_group_name = azurerm_resource_group.Terraform0rg.name
   allocation_method   = "Static"
 
   tags = {
@@ -318,21 +318,21 @@ resource "azurerm_public_ip" "wef" {
 resource "azurerm_network_interface" "Terraform0nic4" {
   name = "DetectionLab0NIC0win10"
   location = "eastus"
-  resource_group_name  = "${azurerm_resource_group.Terraform0rg.name}"
+  resource_group_name  = azurerm_resource_group.Terraform0rg.name
 
   ip_configuration {
     name                          = "myNicConfiguration"
-    subnet_id                     = "${azurerm_subnet.Terraform0subnet.id}"
+    subnet_id                     = azurerm_subnet.Terraform0subnet.id
     private_ip_address_allocation = "Static"
     private_ip_address            = "192.168.38.104"
-    public_ip_address_id          = "${azurerm_public_ip.win10.id}"
+    public_ip_address_id          = azurerm_public_ip.win10.id
   }
 }
 
 resource "azurerm_public_ip" "win10" {
   name                = "DetectionLab0PublicIP0win10"
   location            = "eastus"
-  resource_group_name = "${azurerm_resource_group.Terraform0rg.name}"
+  resource_group_name = azurerm_resource_group.Terraform0rg.name
   allocation_method   = "Static"
 
   tags = {
@@ -344,8 +344,8 @@ resource "azurerm_public_ip" "win10" {
 resource "azurerm_virtual_machine" "Terraform0dc" {
   name = "dc.windomain.local"
   location = "eastus"
-  resource_group_name  = "${azurerm_resource_group.Terraform0rg.name}"
-  network_interface_ids = ["${azurerm_network_interface.Terraform0nic2.id}"]
+  resource_group_name  = azurerm_resource_group.Terraform0rg.name
+  network_interface_ids = [azurerm_network_interface.Terraform0nic2.id]
   vm_size               = "Standard_DS1_v2"
 
   delete_os_disk_on_termination = true
@@ -360,7 +360,7 @@ resource "azurerm_virtual_machine" "Terraform0dc" {
   os_profile {
     computer_name  = "dc"
     admin_username = "azureuser"
-    admin_password = "${var.win_admin_password}"
+    admin_password = var.win_admin_password
   }
   os_profile_windows_config {
     provision_vm_agent        = true
@@ -385,7 +385,7 @@ resource "azurerm_virtual_machine" "Terraform0dc" {
       pass         = "oobeSystem"
       component    = "Microsoft-Windows-Shell-Setup"
       setting_name = "FirstLogonCommands"
-      content      = "${file("./files/FirstLogonCommands.xml")}"
+      content      = file("./files/FirstLogonCommands.xml")
     }
   }
 
@@ -410,8 +410,8 @@ resource "azurerm_virtual_machine" "Terraform0dc" {
 #    connection   = {
 #      host = self.public_ip
 #      type       = "winrm"
-#      user       = "${azurerm_virtual_machine.Terraform0dc.admin_username}"
-#      password   = "${var.win_admin_password}"
+#      user       = azurerm_virtual_machine.Terraform0dc.admin_username
+#      password   = var.win_admin_password
 #      timeout    = "10m"
 #      # NOTE: if you're using a real certificate, rather than a self-signed one, you'll want this set to `false`/to remove this.
 #      insecure = true
@@ -422,8 +422,8 @@ resource "azurerm_virtual_machine" "Terraform0dc" {
 #    connection   = {
 #      host = self.public_ip
 #      type       = "winrm"
-#      user       = "${azurerm_virtual_machine.Terraform0dc.admin_username}"
-#      password   = "${var.win_admin_password}"
+#      user       = azurerm_virtual_machine.Terraform0dc.admin_username
+#      password   = var.win_admin_password
 #      timeout    = "10m"
 #      # NOTE: if you're using a real certificate, rather than a self-signed one, you'll want this set to `false`/to remove this.
 #      insecure = true
@@ -438,8 +438,8 @@ resource "azurerm_virtual_machine" "Terraform0dc" {
 resource "azurerm_virtual_machine" "Terraform0wef" {
   name = "wef.windomain.local"
   location = "eastus"
-  resource_group_name  = "${azurerm_resource_group.Terraform0rg.name}"
-  network_interface_ids = ["${azurerm_network_interface.Terraform0nic3.id}"]
+  resource_group_name  = azurerm_resource_group.Terraform0rg.name
+  network_interface_ids = [azurerm_network_interface.Terraform0nic3.id]
   vm_size               = "Standard_DS1_v2"
 
   delete_os_disk_on_termination = true
@@ -454,7 +454,7 @@ resource "azurerm_virtual_machine" "Terraform0wef" {
   os_profile {
     computer_name  = "wef"
     admin_username = "azureuser"
-    admin_password = "${var.win_admin_password}"
+    admin_password = var.win_admin_password
   }
   os_profile_windows_config {
     enable_automatic_upgrades = true
@@ -476,8 +476,8 @@ resource "azurerm_virtual_machine" "Terraform0wef" {
 resource "azurerm_virtual_machine" "Terraform0win10" {
   name = "win10.windomain.local"
   location = "eastus"
-  resource_group_name  = "${azurerm_resource_group.Terraform0rg.name}"
-  network_interface_ids = ["${azurerm_network_interface.Terraform0nic4.id}"]
+  resource_group_name  = azurerm_resource_group.Terraform0rg.name
+  network_interface_ids = [azurerm_network_interface.Terraform0nic4.id]
   vm_size               = "Standard_DS1_v2"
 
   delete_os_disk_on_termination = true
@@ -492,7 +492,7 @@ resource "azurerm_virtual_machine" "Terraform0win10" {
   os_profile {
     computer_name  = "win10"
     admin_username = "azureuser"
-    admin_password = "${var.win_admin_password}"
+    admin_password = var.win_admin_password
   }
   os_profile_windows_config {
     enable_automatic_upgrades = true
