@@ -380,6 +380,7 @@ resource "azurerm_virtual_machine" "Terraform0dc" {
     }
 
     # Unattend config is to enable basic auth in WinRM, required for the provisioner stage.
+    # https://github.com/terraform-providers/terraform-provider-azurerm/blob/master/examples/virtual-machines/provisioners/windows/files/FirstLogonCommands.xml
     additional_unattend_config {
       pass         = "oobeSystem"
       component    = "Microsoft-Windows-Shell-Setup"
