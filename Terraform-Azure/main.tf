@@ -1,7 +1,7 @@
 # terraform init, plan, apply, destroy
 # Note: does not support idempotence, don't execute twice with same scope.
 # https://www.terraform.io/docs/providers/azurerm/index.html
-# latest test: terraform 0.12.7
+# latest test: terraform 0.12.18
 #
 # FIXME!
 # * apply: provisioning not working on Windows
