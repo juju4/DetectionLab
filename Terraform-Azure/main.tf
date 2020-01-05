@@ -154,6 +154,7 @@ resource "azurerm_network_interface" "Terraform0nic" {
   name                = "DetectionLab0NIC0logger"
   location            = "eastus"
   resource_group_name = azurerm_resource_group.Terraform0rg.name
+  network_security_group_id = azurerm_network_security_group.Terraform0nsg.id
 
   ip_configuration {
     name                          = "myNicConfiguration"
@@ -267,6 +268,7 @@ resource "azurerm_network_interface" "Terraform0nic2" {
   name = "DetectionLab0NIC0dc"
   location = "eastus"
   resource_group_name  = azurerm_resource_group.Terraform0rg.name
+  network_security_group_id = azurerm_network_security_group.Terraform0nsg.id
 
   ip_configuration {
     name                          = "myNicConfiguration"
@@ -293,6 +295,7 @@ resource "azurerm_network_interface" "Terraform0nic3" {
   name = "DetectionLab0NIC0wef"
   location = "eastus"
   resource_group_name  = azurerm_resource_group.Terraform0rg.name
+  network_security_group_id = azurerm_network_security_group.Terraform0nsg.id
 
   ip_configuration {
     name                          = "myNicConfiguration"
@@ -319,6 +322,7 @@ resource "azurerm_network_interface" "Terraform0nic4" {
   name = "DetectionLab0NIC0win10"
   location = "eastus"
   resource_group_name  = azurerm_resource_group.Terraform0rg.name
+  network_security_group_id = azurerm_network_security_group.Terraform0nsg.id
 
   ip_configuration {
     name                          = "myNicConfiguration"
