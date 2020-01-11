@@ -1,0 +1,439 @@
+# https://docs.ansible.com/ansible/latest/scenario_guides/guide_azure.html
+#$ pip3 install ansible[azure] pywinrm pypsrp requests[socks]
+#$ wget https://raw.githubusercontent.com/ansible/ansible/devel/contrib/inventory/azure_rm.py
+#$ ansible-playbook -i azure_rm.py azure-DetectionLab.yml -v
+#
+# FIXME!
+# - external connectivity dc NOK (OK in Azure subnet via Azure bastion, OK int+ext for logger/ssh)
+#       Network Watcher - IP flow verify: says Access Allowed
+#       Windows Firewall: has Allow rules for those ports for All profiles
+#       through logger as bastion + PSRP: OK (extra `ssh DetectionLab0admin@w.x.y.z -D 127.0.0.1:1234`)
+# - network interface: WebUI gives 2 private IP + 1 public IP per VM but inside VM, only have one locally even if both private IPs are reachable
+
+- name: Create Azure DetectionLab infrastructure
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    # General
+    - name: Create DetectionLab resource group
+      azure_rm_resourcegroup:
+        name: "{{ base_rg }}"
+        location: "{{ azure_location }}"
+        tags:
+          testing: testing
+          delete: never
+          environment: "DetectionLab Azure Demo"
+
+    - name: Create logger storage account
+      azure_rm_storageaccount:
+        resource_group: "{{ base_rg }}"
+        # Storage account name must be between 3 and 24 characters in length and use numbers and lower-case letters only.
+        name: "detectionlab0logger"
+        account_type: Standard_LRS
+        # FIXME! no https://docs.microsoft.com/bs-latn-ba/azure/storage/common/storage-require-secure-transfer
+
+    - name: Create dc storage account
+      azure_rm_storageaccount:
+        resource_group: "{{ base_rg }}"
+        name: "detectionlab0dc"
+        account_type: Standard_LRS
+
+    - name: Create wef storage account
+      azure_rm_storageaccount:
+        resource_group: "{{ base_rg }}"
+        name: "detectionlab0wef"
+        account_type: Standard_LRS
+
+    - name: Create win10 storage account
+      azure_rm_storageaccount:
+        resource_group: "{{ base_rg }}"
+        name: "detectionlab0win10"
+        account_type: Standard_LRS
+
+    - name: Create virtual network
+      azure_rm_virtualnetwork:
+        resource_group: "{{ base_rg }}"
+        name: "{{ base_name }}vn001"
+        address_prefixes: "{{ base_vn }}"
+
+    - name: Add subnet
+      azure_rm_subnet:
+        resource_group: "{{ base_rg }}"
+        name: "{{ base_name }}subnet001"
+        address_prefix: "{{ base_subnet }}"
+        virtual_network: "{{ base_name }}vn001"
+
+# https://docs.microsoft.com/en-us/azure/bastion/bastion-create-host-portal
+# Bastion will require RSA private key or password
+# Final step manual
+    - name: Add Bastion subnet
+      azure_rm_subnet:
+        resource_group: "{{ base_rg }}"
+        name: "AzureBastionSubnet"
+        address_prefix: "192.168.250.0/24"
+        virtual_network: "{{ base_name }}vn001"
+
+# FIXME! "the SKU type for the public IP address does not match the SKU type of the load balancer"
+#    - name: Create bastion public ip address
+#      azure_rm_publicipaddress:
+#        resource_group: "{{ base_rg }}"
+#        name: "{{ base_name }}PublicIP0bastion"
+#        # Can't be Static
+#        allocation_method: Dynamic
+#        tags:
+#          environment: "DetectionLab Azure Demo"
+#          role: "AzureBastion"
+#
+# + Bastion creation in Web UI in one of the VMs, ~8-10min
+#
+# End bastion
+
+    - name: Create network security group
+      azure_rm_securitygroup:
+        resource_group: "{{ base_rg }}"
+        name: "{{ base_name }}secgroup001"
+        rules: "{{ base_nsg_rules }}"
+
+    # Linux
+    - name: Create logger public ip address
+      azure_rm_publicipaddress:
+        resource_group: "{{ base_rg }}"
+        name: "{{ base_name }}PublicIP0logger"
+        allocation_method: Static
+        tags:
+          environment: "DetectionLab Azure Demo"
+          role: "logger"
+
+    - name: Create logger NIC
+      azure_rm_networkinterface:
+        resource_group: "{{ base_rg }}"
+        name: "{{ base_name }}nic0logger"
+        virtual_network: "{{ base_name }}vn001"
+        subnet: "{{ base_name }}subnet001"
+        security_group: "{{ base_name }}secgroup001"
+        ip_configurations:
+          - name: ipconfig1
+            public_ip_address_name: "{{ base_name }}PublicIP0logger"
+          - name: ipconfig2
+            private_ip_address: 192.168.38.105
+            private_ip_allocation_method: Static
+            # Private address as primary, else private ip static value is not respected
+            primary: True
+
+    - name: Create logger virtual machine
+      azure_rm_virtualmachine:
+        resource_group: "{{ base_rg }}"
+        name: "{{ base_name }}logger"
+        vm_size: "{{ base_vm_size }}"
+        storage_account: "{{ base_name }}logger"
+        storage_container: "detectionlab0logger"
+        storage_blob: "detectionlab0logger.vhd"
+        boot_diagnostics:
+          enabled: yes
+        admin_username: "{{ base_adminuser_login }}"
+        admin_password: "{{ base_adminuser_password }}"
+        #ssh_password_enabled: false
+        # for bastion
+        ssh_password_enabled: true
+        ssh_public_keys:
+          - path: "/home/{{ base_name }}admin/.ssh/authorized_keys"
+            key_data: "{{ base_adminuser_sshkey }}"
+        network_interfaces: "{{ base_name }}nic0logger"
+        image:
+          offer: UbuntuServer
+          publisher: Canonical
+          sku: '18.04-LTS'
+          version: latest
+        tags:
+          system: linux
+          environment: "DetectionLab Azure Demo"
+          role: "logger"
+      register: loggerout
+
+    - name: Add logger instance to the host group
+      add_host:
+        hostname: "{{ base_name }}logger"
+        ansible_host: "{{ azure_vm.properties.networkProfile.networkInterfaces[0].properties.ipConfigurations[0].properties.publicIPAddress.properties.ipAddress }}"
+        ansible_user: "{{ base_adminuser_login }}"
+        ansible_ssh_private_key_file: "{{ base_adminuser_sshkeyfile }}"
+        groups:
+          - azure_vms
+          - logger
+
+    # Windows dc
+    - name: Create dc public ip address
+      azure_rm_publicipaddress:
+        resource_group: "{{ base_rg }}"
+        name: "{{ base_name }}PublicIP0dc"
+        allocation_method: Static
+        tags:
+          environment: "DetectionLab Azure Demo"
+          role: "dc"
+
+    - name: Create dc NIC
+      azure_rm_networkinterface:
+        resource_group: "{{ base_rg }}"
+        name: "{{ base_name }}nic0dc"
+        virtual_network: "{{ base_name }}vn001"
+        subnet: "{{ base_name }}subnet001"
+        security_group: "{{ base_name }}secgroup001"
+        ip_configurations:
+          - name: ipconfig1
+            public_ip_address_name: "{{ base_name }}PublicIP0dc"
+          - name: ipconfig2
+            private_ip_address: 192.168.38.102
+            private_ip_allocation_method: Static
+            primary: True
+
+    - name: Create dc virtual machine
+      azure_rm_virtualmachine:
+        resource_group: "{{ base_rg }}"
+        name: "dc"
+        vm_size: "{{ base_vm_size }}"
+        storage_account: "{{ base_name }}dc"
+        storage_container: "detectionlab0dc"
+        storage_blob: "detectionlab0dc.vhd"
+        boot_diagnostics:
+          enabled: yes
+        cert_validation_mode: 'ignore'
+        admin_username: "{{ base_adminuser_login }}"
+        admin_password: "{{ base_adminuser_password }}"
+        network_interfaces: "{{ base_name }}nic0dc"
+        os_type: Windows
+        # https, will require keyvault and certificate creation, missing corresponding ansible module
+        winrm:
+          - protocol: http
+        image:
+          offer: WindowsServer
+          publisher: MicrosoftWindowsServer
+          #sku: '2019-Datacenter'
+          sku: '2016-Datacenter'
+          version: latest
+        tags:
+          system: windows
+          environment: "DetectionLab Azure Demo"
+          role: dc
+      register: dcout
+
+    # Note: not sure if still required with vm winrm option
+    # https://github.com/ansible/ansible/issues/62489
+    # https://beginnersforum.net/blog/2018/11/19/azure-cloud-provisioning-using-ansible/
+    # https://github.com/Azure-Samples/ansible-playbooks/blob/master/vm_create_windows.yml
+    # New: Invoke-Expression -Command ((New-Object System.Net.WebClient).DownloadString('https://github.com/ansible/ansible/blob/devel/examples/scripts/ConfigureRemotingForAnsible.ps1')); Enable-WSManCredSSP -Role Server -Force
+    # A UTF-16 Base64 encoded script is used so we don't have to escape any characters that may cause issues
+    - name: encode winrm script utf-16 base64
+      set_fact:
+        winrm_enable_script: SQBuAHYAbwBrAGUALQBFAHgAcAByAGUAcwBzAGkAbwBuACAALQBDAG8AbQBtAGEAbgBkACAAKAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABTAHkAcwB0AGUAbQAuAE4AZQB0AC4AVwBlAGIAQwBsAGkAZQBuAHQAKQAuAEQAbwB3AG4AbABvAGEAZABTAHQAcgBpAG4AZwAoACcAaAB0AHQAcABzADoALwAvAHIAYQB3AC4AZwBpAHQAaAB1AGIAdQBzAGUAcgBjAG8AbgB0AGUAbgB0AC4AYwBvAG0ALwBhAG4AcwBpAGIAbABlAC8AYQBuAHMAaQBiAGwAZQAvAGQAZQB2AGUAbAAvAGUAeABhAG0AcABsAGUAcwAvAHMAYwByAGkAcAB0AHMALwBDAG8AbgBmAGkAZwB1AHIAZQBSAGUAbQBvAHQAaQBuAGcARgBvAHIAQQBuAHMAaQBiAGwAZQAuAHAAcwAxACcAKQApADsAIABFAG4AYQBiAGwAZQAtAFcAUwBNAGEAbgBDAHIAZQBkAFMAUwBQACAALQBSAG8AbABlACAAUwBlAHIAdgBlAHIAIAAtAEYAbwByAGMAZQA=
+
+    - name: configure virtual machine extension
+      azure_rm_virtualmachineextension:
+        name: winrm-extension
+        resource_group: "{{ base_rg }}"
+        virtual_machine_name: "dc"
+        publisher: Microsoft.Compute
+        virtual_machine_extension_type: CustomScriptExtension
+        type_handler_version: '1.9'
+        settings: '{"commandToExecute": "powershell.exe -ExecutionPolicy ByPass -EncodedCommand {{ winrm_enable_script }}"}'
+        auto_upgrade_minor_version: true
+
+    - debug: var=dcout
+    - name: Set fact dc publicip
+      set_fact:
+        # FIXME! seems interface order is not deterministic...
+        dc_publicip: "{{ azure_vm.properties.networkProfile.networkInterfaces[0].properties.ipConfigurations[0].properties.publicIPAddress.properties.ipAddress }}"
+        #dc_publicip: "{{ azure_vm.properties.networkProfile.networkInterfaces[0].properties.ipConfigurations[1].properties.publicIPAddress.properties.ipAddress }}"
+
+# FIXME! not working in both case
+#    - name: wait for the winrm port to come online
+#      wait_for:
+#        port: 5985
+#        #port: 5986
+#        host: "{{ dc_publicip }}"
+#        timeout: 60
+
+    - name: Add new instance to the host group
+      add_host:
+        hostname: "{{ base_name }}dc"
+        ansible_user: "{{ base_adminuser_login }}"
+        ansible_password: "{{ base_adminuser_password }}"
+# Direct (NOK)
+#        ansible_host: "{{ dc_publicip }}"
+#        ansible_connection: winrm
+#        ansible_port: 5985
+        #ansible_port: 5986
+        #ansible_winrm_server_cert_validation: ignore
+        #ansible_winrm_transport: ssl
+# through logger as jumphost (OK)
+# https://docs.ansible.com/ansible/devel/plugins/connection/psrp.html
+# https://www.bloggingforlogging.com/2018/10/14/windows-host-through-ssh-bastion-on-ansible/
+        ansible_host: "192.168.38.102"
+        ansible_connection: psrp
+        ansible_psrp_protocol: http
+        ansible_psrp_proxy: socks5h://localhost:1234
+        groups:
+          - azure_vms
+          - dc
+
+    # Windows wef
+    - name: Create wef public ip address
+      azure_rm_publicipaddress:
+        resource_group: "{{ base_rg }}"
+        name: "{{ base_name }}PublicIP0wef"
+        allocation_method: Static
+        tags:
+          environment: "DetectionLab Azure Demo"
+          role: "wef"
+
+    - name: Create wef NIC
+      azure_rm_networkinterface:
+        resource_group: "{{ base_rg }}"
+        name: "{{ base_name }}nic0wef"
+        virtual_network: "{{ base_name }}vn001"
+        subnet: "{{ base_name }}subnet001"
+        security_group: "{{ base_name }}secgroup001"
+        ip_configurations:
+          - name: ipconfig1
+            public_ip_address_name: "{{ base_name }}PublicIP0wef"
+          - name: ipconfig2
+            private_ip_address: 192.168.38.103
+            private_ip_allocation_method: Static
+            primary: True
+
+    - name: Create wef virtual machine
+      azure_rm_virtualmachine:
+        resource_group: "{{ base_rg }}"
+        name: "wef"
+        vm_size: "{{ base_vm_size }}"
+        storage_account: "{{ base_name }}wef"
+        storage_container: "detectionlab0wef"
+        storage_blob: "detectionlab0wef.vhd"
+        boot_diagnostics:
+          enabled: yes
+        cert_validation_mode: 'ignore'
+        admin_username: "{{ base_adminuser_login }}"
+        admin_password: "{{ base_adminuser_password }}"
+        network_interfaces: "{{ base_name }}nic0wef"
+        os_type: Windows
+        winrm:
+          - protocol: http
+        image:
+          offer: WindowsServer
+          publisher: MicrosoftWindowsServer
+          sku: '2016-Datacenter'
+          version: latest
+        tags:
+          system: windows
+          environment: "DetectionLab Azure Demo"
+          role: wef
+      register: wefout
+
+    - name: Add new instance to the host group
+      add_host:
+        hostname: "{{ base_name }}wef"
+        ansible_user: "{{ base_adminuser_login }}"
+        ansible_password: "{{ base_adminuser_password }}"
+        ansible_host: "192.168.38.103"
+        ansible_connection: psrp
+        ansible_psrp_protocol: http
+        ansible_psrp_proxy: socks5h://localhost:1234
+        groups:
+          - azure_vms
+          - wef
+
+    # Windows win10
+    - name: Create win10 public ip address
+      azure_rm_publicipaddress:
+        resource_group: "{{ base_rg }}"
+        name: "{{ base_name }}PublicIP0win10"
+        allocation_method: Static
+        tags:
+          environment: "DetectionLab Azure Demo"
+          role: "win10"
+
+    - name: Create win10 NIC
+      azure_rm_networkinterface:
+        resource_group: "{{ base_rg }}"
+        name: "{{ base_name }}nic0win10"
+        virtual_network: "{{ base_name }}vn001"
+        subnet: "{{ base_name }}subnet001"
+        security_group: "{{ base_name }}secgroup001"
+        ip_configurations:
+          - name: ipconfig1
+            public_ip_address_name: "{{ base_name }}PublicIP0win10"
+          - name: ipconfig2
+            private_ip_address: 192.168.38.104
+            private_ip_allocation_method: Static
+            primary: True
+
+    - name: Create win10 virtual machine
+      azure_rm_virtualmachine:
+        resource_group: "{{ base_rg }}"
+        name: "win10"
+        vm_size: "{{ base_vm_size }}"
+        storage_account: "{{ base_name }}win10"
+        storage_container: "detectionlab0win10"
+        storage_blob: "detectionlab0win10.vhd"
+        boot_diagnostics:
+          enabled: yes
+        cert_validation_mode: 'ignore'
+        admin_username: "{{ base_adminuser_login }}"
+        admin_password: "{{ base_adminuser_password }}"
+        network_interfaces: "{{ base_name }}nic0win10"
+        os_type: Windows
+        winrm:
+          - protocol: http
+        image:
+          #offer: WindowsServer
+          #publisher: MicrosoftWindowsServer
+          #sku: '2016-Datacenter'
+          offer: Windows-10
+          publisher: MicrosoftWindowsDesktop
+          sku: 'RS3-Pro'
+          version: latest
+        tags:
+          system: windows
+          environment: "DetectionLab Azure Demo"
+          role: win10
+      register: win10out
+
+    - name: Add new instance to the host group
+      add_host:
+        hostname: "{{ base_name }}win10"
+        ansible_user: "{{ base_adminuser_login }}"
+        ansible_password: "{{ base_adminuser_password }}"
+        ansible_host: "192.168.38.104"
+        ansible_connection: psrp
+        ansible_psrp_protocol: http
+        ansible_psrp_proxy: socks5h://localhost:1234
+        groups:
+          - azure_vms
+          - win10
+
+
+- name: Configure logger host
+  hosts: logger
+  tasks:
+    - name: Check host is reachable
+      ping:
+#    - include: logger.yml
+
+- name: Configure dc host
+  hosts: dc
+  tasks:
+    - name: Check host is reachable
+      win_ping:
+#    - include: dc.yml
+
+- name: Configure wef host
+  hosts: wef
+  tasks:
+    - name: Check host is reachable
+      win_ping:
+#    - include: wef.yml
+
+- name: Configure win10 host
+  hosts: win10
+  tasks:
+    - name: Check host is reachable
+      win_ping:
+#    - include: win10.yml

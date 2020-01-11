@@ -1,0 +1,69 @@
+---
+
+- name: Install security updates
+  win_updates:
+    category_names: SecurityUpdates
+
+- name: Install git
+  win_chocolatey:
+    name: git
+    state: present
+
+- name: Check if existing DetectionLab directory
+  win_stat:
+    path: 'c:\DetectionLab'
+  register: dir
+
+- name: Git clone Detectionlab
+  win_shell: git clone https://github.com/clong/DetectionLab.git
+  args:
+    chdir: 'c:\'
+  when: not dir.stat.exists
+
+- name: Install other applications with chocolatey
+  win_chocolatey:
+    name:
+# utilities
+      - NotepadPlusPlus
+      - GoogleChrome
+      - WinRar
+# sysinternals
+      - sysinternals
+      - sysmon
+    state: present
+
+- name: Install classic-shell with chocolatey
+  win_chocolatey:
+    name:
+# utilities
+      - classic-shell
+    state: present
+    install_args: "ADDLOCAL=ClassicStartMenu"
+
+- name: DetectionLab Menu
+  win_shell: '"C:\Program Files\Classic Shell\ClassicStartMenu.exe" "-xml" "c:\vagrant\resources\windows\MenuSettings.xml"'
+
+# stupid raw porting from Vagrant for now
+- name: Configure dc host
+  win_shell: ".\\{{ item }}"
+  args:
+    chdir: 'c:\DetectionLab\Vagrant\scripts'
+  with_items:
+    - "provision.ps1"
+    - "download_palantir_wef.ps1"
+    - "download_palantir_osquery.ps1"
+    - "install-splunkuf.ps1"
+    - "install-inputsconf.ps1"
+#    - "install-utilities.ps1"
+    - "install-redteam.ps1"
+    - "install-choco-extras.ps1"
+    - "install-osquery.ps1"
+    - "install-caldera-agent.ps1"
+    - "install-sysinternals.ps1"
+    - "configure-ou.ps1"
+    - "configure-wef-gpo.ps1"
+    - "configure-powershelllogging.ps1"
+    - "configure-AuditingPolicyGPOs.ps1"
+    - "install-autorunstowineventlog.ps1"
+    - 'wevtutil el | Select-String -notmatch "Microsoft-Windows-LiveId" | Foreach-Object {wevtutil cl "$_"}'
+    - "Set-SmbServerConfiguration -AuditSmb1Access $true -Force"

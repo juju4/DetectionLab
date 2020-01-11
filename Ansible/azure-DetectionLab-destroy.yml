@@ -1,0 +1,58 @@
+---
+#$ ansible-playbook -i inventory/azure_rm.py azure-DetectionLab-destroy.yml
+
+- name: Destroy Azure DetectionLab infrastructure
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Remove virtual machines and all resources
+      azure_rm_virtualmachine:
+        resource_group: "{{ base_rg }}"
+        name: "{{ item }}"
+        state: absent
+        remove_on_absent:
+          - network_interfaces
+          - virtual_storage
+          - public_ips
+      with_items:
+        - "{{ base_name }}logger"
+        - "dc"
+        - "wef"
+        - "win10"
+
+    - name: Remove storage accounts
+      azure_rm_storageaccount:
+        resource_group: "{{ base_rg }}"
+        name: "{{ item }}"
+        state: absent
+        # else list each blob containers
+        force_delete_nonempty: yes
+      with_items:
+        - "detectionlab0logger"
+        - "detectionlab0dc"
+        - "detectionlab0wef"
+        - "detectionlab0win10"
+
+    - name: Remove network security group
+      azure_rm_securitygroup:
+        resource_group: "{{ base_rg }}"
+        name: "{{ base_name }}secgroup001"
+        state: absent
+
+    - name: Remove subnet
+      azure_rm_subnet:
+        resource_group: "{{ base_rg }}"
+        name: "{{ base_name }}subnet001"
+        virtual_network: "{{ base_name }}vn001"
+        state: absent
+
+    - name: Remove virtual network
+      azure_rm_virtualnetwork:
+        resource_group: "{{ base_rg }}"
+        name: "{{ base_name }}vn001"
+        state: absent
+
+    - name: Remove DetectionLab resource group
+      azure_rm_resourcegroup:
+        name: "{{ base_rg }}"
+        state: absent

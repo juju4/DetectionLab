@@ -1,0 +1,74 @@
+---
+
+ip_whitelist:
+  - "1.1.1.1"
+azure_location: eastus
+# Storage account name must be between 3 and 24 characters in length and use numbers and lower-case letters only.
+base_name: DetectionLab0
+base_rg: DetectionLab0ansible
+base_vm_size: Standard_D1
+base_adminuser_login: "{{ base_name }}admin"
+# must match Azure password requirements: lowercase, uppercase, digit, special chars (3 on 4), 12-123 chars
+base_adminuser_password: Password_1234_to_change!
+base_adminuser_sshkeyfile: "/path/to/.ssh/id_rsa.pub"
+base_adminuser_sshkey: "{{ lookup('file', base_adminuser_sshkeyfile) }}"
+base_vn: "192.168.0.0/16"
+base_subnet: "192.168.38.0/24"
+base_nsg_rules:
+      - name: SSH
+        protocol: Tcp
+        destination_port_range: 22
+        access: Allow
+        priority: 1001
+        direction: Inbound
+        source_address_prefix: "{{ ip_whitelist }}"
+      - name: Splunk
+        protocol: Tcp
+        destination_port_range: 8000
+        access: Allow
+        priority: 1002
+        direction: Inbound
+        source_address_prefix: "{{ ip_whitelist }}"
+      - name: Fleet
+        protocol: Tcp
+        destination_port_range: 8412
+        access: Allow
+        priority: 1003
+        direction: Inbound
+        source_address_prefix: "{{ ip_whitelist }}"
+      - name: RDP
+        protocol: Tcp
+        destination_port_range: 3389
+        access: Allow
+        priority: 1004
+        direction: Inbound
+        source_address_prefix: "{{ ip_whitelist }}"
+      - name: WinRM-http
+        protocol: Tcp
+        destination_port_range: 5985
+        access: Allow
+        priority: 1005
+        direction: Inbound
+        source_address_prefix: "{{ ip_whitelist }}"
+      - name: WinRM-https
+        protocol: Tcp
+        destination_port_range: 5986
+        access: Allow
+        priority: 1006
+        direction: Inbound
+        source_address_prefix: "{{ ip_whitelist }}"
+      - name: WinATA
+        protocol: Tcp
+        destination_port_range: 443
+        access: Allow
+        priority: 1007
+        direction: Inbound
+        source_address_prefix: "{{ ip_whitelist }}"
+      # Allow all traffic from the private subnet
+      - name: PrivateSubnet
+        protocol: Tcp
+        destination_port_range: "*"
+        access: Allow
+        priority: 1010
+        direction: Inbound
+        source_address_prefix: "192.168.38.0/24"
