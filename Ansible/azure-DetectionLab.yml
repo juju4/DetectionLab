@@ -160,7 +160,7 @@
         hostname: "{{ base_name }}logger"
         ansible_host: "{{ azure_vm.properties.networkProfile.networkInterfaces[0].properties.ipConfigurations[0].properties.publicIPAddress.properties.ipAddress }}"
         ansible_user: "{{ base_adminuser_login }}"
-        ansible_ssh_private_key_file: "{{ base_adminuser_sshkeyfile }}"
+        ansible_ssh_private_key_file: "{{ base_adminuser_sshkeyfile_priv }}"
         groups:
           - azure_vms
           - logger
