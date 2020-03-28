@@ -414,31 +414,36 @@
           - azure_vms
           - win10
 
-
 - name: Configure logger host
   hosts: logger
+  become: yes
+  roles:
+    - { role: geerlingguy.mysql, when: ansible_os_family == 'Debian' }
+    - juju4.logger
   tasks:
     - name: Check host is reachable
       ping:
-#    - include: logger.yml
 
 - name: Configure dc host
   hosts: dc
+  roles:
+    - juju4.dc
   tasks:
     - name: Check host is reachable
       win_ping:
-#    - include: dc.yml
 
 - name: Configure wef host
   hosts: wef
+  roles:
+    - juju4.wef
   tasks:
     - name: Check host is reachable
       win_ping:
-#    - include: wef.yml
 
 - name: Configure win10 host
   hosts: win10
+  roles:
+    - juju4.win10
   tasks:
     - name: Check host is reachable
       win_ping:
-#    - include: win10.yml
