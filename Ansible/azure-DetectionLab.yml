@@ -30,6 +30,8 @@
         # Storage account name must be between 3 and 24 characters in length and use numbers and lower-case letters only.
         name: "detectionlab0logger"
         account_type: Standard_LRS
+        # https://docs.microsoft.com/en-us/azure/storage/common/storage-account-overview#recommendations
+        kind: StorageV2
         # FIXME! no https://docs.microsoft.com/bs-latn-ba/azure/storage/common/storage-require-secure-transfer
 
     - name: Create dc storage account
@@ -37,11 +39,13 @@
         resource_group: "{{ base_rg }}"
         name: "detectionlab0dc"
         account_type: Standard_LRS
+        kind: StorageV2
 
     - name: Create wef storage account
       azure_rm_storageaccount:
         resource_group: "{{ base_rg }}"
         name: "detectionlab0wef"
+        kind: StorageV2
         account_type: Standard_LRS
 
     - name: Create win10 storage account
@@ -49,6 +53,7 @@
         resource_group: "{{ base_rg }}"
         name: "detectionlab0win10"
         account_type: Standard_LRS
+        kind: StorageV2
 
     - name: Create virtual network
       azure_rm_virtualnetwork:
