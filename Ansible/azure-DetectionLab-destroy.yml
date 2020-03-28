@@ -1,5 +1,6 @@
 ---
 #$ ansible-playbook -i inventory/azure_rm.py azure-DetectionLab-destroy.yml
+#FIXME! if created a bastion, have to remove it manually...
 
 - name: Destroy Azure DetectionLab infrastructure
   hosts: localhost
@@ -50,6 +51,12 @@
       azure_rm_virtualnetwork:
         resource_group: "{{ base_rg }}"
         name: "{{ base_name }}vn001"
+        state: absent
+
+    - name: Remove bastion public ip address
+      azure_rm_publicipaddress:
+        resource_group: "{{ base_rg }}"
+        name: "{{ base_name }}vn001-ip"
         state: absent
 
     - name: Remove DetectionLab resource group
