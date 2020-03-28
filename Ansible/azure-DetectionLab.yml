@@ -393,7 +393,7 @@
           #sku: '2016-Datacenter'
           offer: Windows-10
           publisher: MicrosoftWindowsDesktop
-          sku: 'RS3-Pro'
+          sku: '19H2-Pro'
           version: latest
         tags:
           system: windows
