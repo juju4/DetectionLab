@@ -72,3 +72,16 @@ base_nsg_rules:
         priority: 1010
         direction: Inbound
         source_address_prefix: "192.168.38.0/24"
+
+detectionlab_win_reboot: true
+detectionlab_stats: false
+detectionlab_online: true
+wef_atalight_target_enable: true
+wef_user: "{{ base_adminuser_login }}"
+wef_pass: "{{ base_adminuser_password }}"
+win_join_domain_user: "windomain.local\\{{ base_adminuser_login }}"
+win_join_domain_pass: "{{ base_adminuser_password }}"
+
+win_osquery_fleetserver: kolide
+#win_osquery_secret_path
+#win_osquery_cert
