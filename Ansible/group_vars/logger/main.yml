@@ -1,0 +1,46 @@
+---
+
+use_zeek_opensuse_repo: true
+guacamole_version: 1.0.0
+# to avoid rotating mirror
+guacamole_dl_url: 'https://www-us.apache.org/dist/guacamole/1.0.0'
+kolide_enrollment_secret: enrollmentsecret
+broids_intels:
+  - /opt/zeek/etc/intel.dat
+# same than juju4.kolide
+kolide_port: 8412
+kolide_mysql_pass: "Kolide!2017@"
+kolide_mysql_db: kolidedb
+kolide_logs: /var/log/kolide
+kolide_snapshot_split_enable: true
+kolide_admin_email: 'changethis@example.com'
+kolide_admin_name: admin
+kolide_admin_pass: 'admin1234#'
+kolide_orgname: KolideFleetOrg
+#kolide_admin_email: 'admin@detectionlab.network'
+#kolide_admin_name: admin
+#kolide_admin_pass: 'admin123#'
+logger_fleet_email: "{{ kolide_admin_email }}"
+logger_fleet_adminpass: "{{ kolide_admin_pass }}"
+guacamole_rdp_security: nla
+guacamole_rdp_ignore_cert: 'false'
+guacamole_users:
+  - name: vagrant
+    password: vagrant
+    connections:
+      - host: 192.168.38.105
+        name: logger
+        protocol: ssh
+        port: 22
+      - host: 192.168.38.103
+        name: wef
+        protocol: rdp
+        port: 3389
+      - host: 192.168.38.104
+        name: win10
+        protocol: rdp
+        port: 3389
+      - host: 192.168.38.102
+        name: dc
+        protocol: rdp
+        port: 3389
