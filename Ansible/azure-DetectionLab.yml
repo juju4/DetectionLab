@@ -7,8 +7,10 @@
 # - external connectivity dc NOK (OK in Azure subnet via Azure bastion, OK int+ext for logger/ssh)
 #       Network Watcher - IP flow verify: says Access Allowed
 #       Windows Firewall: has Allow rules for those ports for All profiles
-#       through logger as bastion + PSRP: OK (extra `ssh DetectionLab0admin@w.x.y.z -D 127.0.0.1:1234`)
+#       through logger as bastion + PSRP: OK (extra `ssh DetectionLab0admin@w.x.y.z -D localhost:1234`)
 # - network interface: WebUI gives 2 private IP + 1 public IP per VM but inside VM, only have one locally even if both private IPs are reachable
+# Network troubleshooting: https://docs.microsoft.com/en-us/azure/network-watcher/network-watcher-ip-flow-verify-overview
+#       https://docs.microsoft.com/en-us/azure/virtual-machines/troubleshooting/troubleshoot-ssh-connection
 
 - name: Create Azure DetectionLab infrastructure
   hosts: localhost
@@ -268,7 +270,7 @@
         #ansible_port: 5986
         #ansible_winrm_server_cert_validation: ignore
         #ansible_winrm_transport: ssl
-# through logger as jumphost (OK)
+# through logger as jumphost (OK) + must open ssh connection in parallel
 # https://docs.ansible.com/ansible/devel/plugins/connection/psrp.html
 # https://www.bloggingforlogging.com/2018/10/14/windows-host-through-ssh-bastion-on-ansible/
         ansible_host: "192.168.38.102"
