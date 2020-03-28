@@ -6,7 +6,7 @@ azure_location: eastus
 # Storage account name must be between 3 and 24 characters in length and use numbers and lower-case letters only.
 base_name: DetectionLab0
 base_rg: DetectionLab0ansible
-base_vm_size: Standard_D1
+base_vm_size: Standard_D1_v2
 base_adminuser_login: "{{ base_name }}admin"
 # must match Azure password requirements: lowercase, uppercase, digit, special chars (3 on 4), 12-123 chars
 base_adminuser_password: Password_1234_to_change!
