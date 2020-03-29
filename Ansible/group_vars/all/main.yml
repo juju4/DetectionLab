@@ -11,6 +11,7 @@ base_adminuser_login: "{{ base_name }}admin"
 # must match Azure password requirements: lowercase, uppercase, digit, special chars (3 on 4), 12-123 chars
 base_adminuser_password: Password_1234_to_change!
 base_adminuser_sshkeyfile: "/path/to/.ssh/id_rsa.pub"
+base_adminuser_sshkeyfile_priv: "/path/to/.ssh/id_rsa"
 base_adminuser_sshkey: "{{ lookup('file', base_adminuser_sshkeyfile) }}"
 base_vn: "192.168.0.0/16"
 base_subnet: "192.168.38.0/24"
