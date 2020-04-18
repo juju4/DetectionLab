@@ -1,7 +1,6 @@
 # https://docs.ansible.com/ansible/latest/scenario_guides/guide_azure.html
 #$ pip3 install ansible[azure] pywinrm pypsrp requests[socks]
-#$ wget https://raw.githubusercontent.com/ansible/ansible/devel/contrib/inventory/azure_rm.py
-#$ ansible-playbook -i azure_rm.py azure-DetectionLab.yml -v
+#$ ansible-playbook azure-DetectionLab.yml -v
 #
 # FIXME!
 # - external connectivity dc NOK (OK in Azure subnet via Azure bastion, OK int+ext for logger/ssh)
