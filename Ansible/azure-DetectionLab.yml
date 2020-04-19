@@ -71,7 +71,6 @@
 
 # https://docs.microsoft.com/en-us/azure/bastion/bastion-create-host-portal
 # Bastion will require RSA private key or password
-# Final step manual
     - name: Add Bastion subnet
       azure_rm_subnet:
         resource_group: "{{ base_rg }}"
@@ -79,19 +78,24 @@
         address_prefix: "192.168.250.0/24"
         virtual_network: "{{ base_name }}vn001"
 
-# FIXME! "the SKU type for the public IP address does not match the SKU type of the load balancer"
-#    - name: Create bastion public ip address
-#      azure_rm_publicipaddress:
-#        resource_group: "{{ base_rg }}"
-#        name: "{{ base_name }}PublicIP0bastion"
-#        # Can't be Static
-#        allocation_method: Dynamic
-#        tags:
-#          environment: "DetectionLab Azure Demo"
-#          role: "AzureBastion"
-#
-# + Bastion creation in Web UI in one of the VMs, ~8-10min
-#
+    - name: Create Azure Bastion
+      azure_rm_deployment:
+        resource_group: "{{ base_rg }}"
+        location: "{{ azure_location }}"
+        name: AzureBastion4DetectionLab
+        parameters:
+          vnet-name:
+            value: "{{ base_name }}vn001"
+          vnet-ip-prefix:
+            value: "{{ base_vn }}"
+          vnet-new-or-existing:
+            value: 'existing'
+          bastion-subnet-ip-prefix:
+            value: '192.168.250.0/24'
+          location:
+            value: "{{ azure_location }}"
+        template_link: 'https://github.com/Azure/azure-quickstart-templates/blob/master/101-azure-bastion/azuredeploy.json'
+      register: azurebastion
 # End bastion
 
     - name: Create network security group

@@ -59,6 +59,12 @@
         name: "{{ base_name }}vn001-ip"
         state: absent
 
+    - name: Remove Azure Bastion
+      azure_rm_deployment:
+        resource_group: "{{ base_rg }}"
+        name: AzureBastion4DetectionLab
+        state: absent
+
     - name: Remove DetectionLab resource group
       azure_rm_resourcegroup:
         name: "{{ base_rg }}"
