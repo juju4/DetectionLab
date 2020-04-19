@@ -94,7 +94,7 @@
             value: '192.168.250.0/24'
           location:
             value: "{{ azure_location }}"
-        template_link: 'https://github.com/Azure/azure-quickstart-templates/blob/master/101-azure-bastion/azuredeploy.json'
+        template_link: 'https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/101-azure-bastion/azuredeploy.json'
       register: azurebastion
 # End bastion
 
