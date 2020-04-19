@@ -4,7 +4,6 @@ use_zeek_opensuse_repo: true
 guacamole_version: 1.0.0
 # to avoid rotating mirror
 guacamole_dl_url: 'https://www-us.apache.org/dist/guacamole/1.0.0'
-kolide_enrollment_secret: enrollmentsecret
 broids_intels:
   - /opt/zeek/etc/intel.dat
 # same than juju4.kolide
@@ -20,6 +19,7 @@ kolide_orgname: KolideFleetOrg
 #kolide_admin_email: 'admin@detectionlab.network'
 #kolide_admin_name: admin
 #kolide_admin_pass: 'admin123#'
+kolide_cert_retrieve: true
 logger_fleet_email: "{{ kolide_admin_email }}"
 logger_fleet_adminpass: "{{ kolide_admin_pass }}"
 guacamole_rdp_security: nla

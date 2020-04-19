@@ -83,6 +83,11 @@ wef_userpass: "{{ base_adminuser_password }}"
 win_join_domain_user: "windomain.local\\{{ base_adminuser_login }}"
 win_join_domain_pass: "{{ base_adminuser_password }}"
 
+kolide_enrollment_secret: enrollmentsecret
 win_osquery_fleetserver: kolide
-#win_osquery_secret_path
-#win_osquery_cert
+win_osquery_secret: "{{ kolide_enrollment_secret }}"
+win_osquery_secret_path: 'C:\Program Files\osquery\certs\enroll_secret.txt'
+# push certificate from orchestrator
+win_osquery_cert_push: true
+win_osquery_cert_orchestrator_path: 'fleet.crt'
+win_osquery_cert_path: 'C:\Program Files\osquery\certs\fleet.crt'
