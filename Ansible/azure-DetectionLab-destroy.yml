@@ -40,6 +40,18 @@
         name: "{{ base_name }}secgroup001"
         state: absent
 
+    - name: Remove bastion public ip address
+      azure_rm_publicipaddress:
+        resource_group: "{{ base_rg }}"
+        name: "{{ base_name }}vn001-ip"
+        state: absent
+
+    - name: Remove Azure Bastion
+      azure_rm_deployment:
+        resource_group: "{{ base_rg }}"
+        name: AzureBastion4DetectionLab
+        state: absent
+
     - name: Remove subnet
       azure_rm_subnet:
         resource_group: "{{ base_rg }}"
@@ -51,18 +63,6 @@
       azure_rm_virtualnetwork:
         resource_group: "{{ base_rg }}"
         name: "{{ base_name }}vn001"
-        state: absent
-
-    - name: Remove bastion public ip address
-      azure_rm_publicipaddress:
-        resource_group: "{{ base_rg }}"
-        name: "{{ base_name }}vn001-ip"
-        state: absent
-
-    - name: Remove Azure Bastion
-      azure_rm_deployment:
-        resource_group: "{{ base_rg }}"
-        name: AzureBastion4DetectionLab
         state: absent
 
     - name: Remove DetectionLab resource group
