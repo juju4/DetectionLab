@@ -69,34 +69,35 @@
         address_prefix: "{{ base_subnet }}"
         virtual_network: "{{ base_name }}vn001"
 
+    - block:
 # https://docs.microsoft.com/en-us/azure/bastion/bastion-create-host-portal
 # Bastion will require RSA private key or password
-    - name: Add Bastion subnet
-      azure_rm_subnet:
-        resource_group: "{{ base_rg }}"
-        name: "AzureBastionSubnet"
-        address_prefix: "192.168.250.0/24"
-        virtual_network: "{{ base_name }}vn001"
+        - name: Add Bastion subnet
+          azure_rm_subnet:
+            resource_group: "{{ base_rg }}"
+            name: "AzureBastionSubnet"
+            address_prefix: "192.168.250.0/24"
+            virtual_network: "{{ base_name }}vn001"
 
-    - name: Create Azure Bastion
-      azure_rm_deployment:
-        resource_group: "{{ base_rg }}"
-        location: "{{ azure_location }}"
-        name: AzureBastion4DetectionLab
-        parameters:
-          vnet-name:
-            value: "{{ base_name }}vn001"
-          vnet-ip-prefix:
-            value: "{{ base_vn }}"
-          vnet-new-or-existing:
-            value: 'existing'
-          bastion-subnet-ip-prefix:
-            value: '192.168.250.0/24'
-          location:
-            value: "{{ azure_location }}"
-        template_link: 'https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/101-azure-bastion/azuredeploy.json'
-      register: azurebastion
-# End bastion
+        - name: Create Azure Bastion
+          azure_rm_deployment:
+            resource_group: "{{ base_rg }}"
+            location: "{{ azure_location }}"
+            name: AzureBastion4DetectionLab
+            parameters:
+              vnet-name:
+                value: "{{ base_name }}vn001"
+              vnet-ip-prefix:
+                value: "{{ base_vn }}"
+              vnet-new-or-existing:
+                value: 'existing'
+              bastion-subnet-ip-prefix:
+                value: '192.168.250.0/24'
+              location:
+                value: "{{ azure_location }}"
+            template_link: 'https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/101-azure-bastion/azuredeploy.json'
+          register: azurebastion
+      when: detectionlab_azurebastion
 
     - name: Create network security group
       azure_rm_securitygroup:

@@ -77,6 +77,7 @@ base_nsg_rules:
 detectionlab_win_reboot: true
 detectionlab_stats: false
 detectionlab_online: true
+detectionlab_azurebastion: true
 wef_atalight_target_enable: false
 wef_user: "{{ base_adminuser_login }}"
 wef_userpass: "{{ base_adminuser_password }}"
