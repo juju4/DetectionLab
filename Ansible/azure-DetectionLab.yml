@@ -25,37 +25,6 @@
           delete: never
           environment: "DetectionLab Azure Demo"
 
-    - name: Create logger storage account
-      azure_rm_storageaccount:
-        resource_group: "{{ base_rg }}"
-        # Storage account name must be between 3 and 24 characters in length and use numbers and lower-case letters only.
-        name: "detectionlab0logger"
-        account_type: Standard_LRS
-        # https://docs.microsoft.com/en-us/azure/storage/common/storage-account-overview#recommendations
-        kind: StorageV2
-        # FIXME! no https://docs.microsoft.com/bs-latn-ba/azure/storage/common/storage-require-secure-transfer
-
-    - name: Create dc storage account
-      azure_rm_storageaccount:
-        resource_group: "{{ base_rg }}"
-        name: "detectionlab0dc"
-        account_type: Standard_LRS
-        kind: StorageV2
-
-    - name: Create wef storage account
-      azure_rm_storageaccount:
-        resource_group: "{{ base_rg }}"
-        name: "detectionlab0wef"
-        kind: StorageV2
-        account_type: Standard_LRS
-
-    - name: Create win10 storage account
-      azure_rm_storageaccount:
-        resource_group: "{{ base_rg }}"
-        name: "detectionlab0win10"
-        account_type: Standard_LRS
-        kind: StorageV2
-
     - name: Create virtual network
       azure_rm_virtualnetwork:
         resource_group: "{{ base_rg }}"
@@ -136,9 +105,7 @@
         resource_group: "{{ base_rg }}"
         name: "{{ base_name }}logger"
         vm_size: "{{ base_vm_size }}"
-        storage_account: "{{ base_name }}logger"
-        storage_container: "detectionlab0logger"
-        storage_blob: "detectionlab0logger.vhd"
+        managed_disk_type: "{{ base_managedisk | default('Standard_LRS') }}"
         boot_diagnostics:
           enabled: yes
         admin_username: "{{ base_adminuser_login }}"
@@ -201,9 +168,7 @@
         resource_group: "{{ base_rg }}"
         name: "dc"
         vm_size: "{{ base_vm_size }}"
-        storage_account: "{{ base_name }}dc"
-        storage_container: "detectionlab0dc"
-        storage_blob: "detectionlab0dc.vhd"
+        managed_disk_type: "{{ base_managedisk | default('Standard_LRS') }}"
         boot_diagnostics:
           enabled: yes
         cert_validation_mode: 'ignore'
@@ -315,9 +280,7 @@
         resource_group: "{{ base_rg }}"
         name: "wef"
         vm_size: "{{ base_vm_size }}"
-        storage_account: "{{ base_name }}wef"
-        storage_container: "detectionlab0wef"
-        storage_blob: "detectionlab0wef.vhd"
+        managed_disk_type: "{{ base_managedisk | default('Standard_LRS') }}"
         boot_diagnostics:
           enabled: yes
         cert_validation_mode: 'ignore'
@@ -381,9 +344,7 @@
         resource_group: "{{ base_rg }}"
         name: "win10"
         vm_size: "{{ base_vm_size }}"
-        storage_account: "{{ base_name }}win10"
-        storage_container: "detectionlab0win10"
-        storage_blob: "detectionlab0win10.vhd"
+        managed_disk_type: "{{ base_managedisk | default('Standard_LRS') }}"
         boot_diagnostics:
           enabled: yes
         cert_validation_mode: 'ignore'

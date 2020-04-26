@@ -21,19 +21,6 @@
         - "wef"
         - "win10"
 
-    - name: Remove storage accounts
-      azure_rm_storageaccount:
-        resource_group: "{{ base_rg }}"
-        name: "{{ item }}"
-        state: absent
-        # else list each blob containers
-        force_delete_nonempty: yes
-      with_items:
-        - "detectionlab0logger"
-        - "detectionlab0dc"
-        - "detectionlab0wef"
-        - "detectionlab0win10"
-
     - name: Remove network security group
       azure_rm_securitygroup:
         resource_group: "{{ base_rg }}"
