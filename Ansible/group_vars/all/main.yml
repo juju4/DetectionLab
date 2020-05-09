@@ -14,6 +14,10 @@ base_adminuser_password: Password_1234_to_change!
 base_adminuser_sshkeyfile: "/path/to/.ssh/id_rsa.pub"
 base_adminuser_sshkeyfile_priv: "/path/to/.ssh/id_rsa"
 base_adminuser_sshkey: "{{ lookup('file', base_adminuser_sshkeyfile) }}"
+wef_user: "{{ base_adminuser_login }}"
+wef_userpass: "{{ base_adminuser_password }}"
+win_join_domain_user: "windomain.local\\{{ base_adminuser_login }}"
+win_join_domain_pass: "{{ base_adminuser_password }}"
 base_vn: "192.168.0.0/16"
 base_subnet: "192.168.38.0/24"
 base_nsg_rules:
@@ -80,10 +84,6 @@ detectionlab_stats: false
 detectionlab_online: true
 detectionlab_azurebastion: true
 wef_atalight_target_enable: false
-wef_user: "{{ base_adminuser_login }}"
-wef_userpass: "{{ base_adminuser_password }}"
-win_join_domain_user: "windomain.local\\{{ base_adminuser_login }}"
-win_join_domain_pass: "{{ base_adminuser_password }}"
 
 kolide_enrollment_secret: enrollmentsecret
 win_osquery_fleetserver: kolide
