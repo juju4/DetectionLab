@@ -21,12 +21,6 @@
         - "wef"
         - "win10"
 
-    - name: Remove network security group
-      azure_rm_securitygroup:
-        resource_group: "{{ base_rg }}"
-        name: "{{ base_name }}secgroup001"
-        state: absent
-
     - name: Remove bastion public ip address
       azure_rm_publicipaddress:
         resource_group: "{{ base_rg }}"
@@ -37,6 +31,12 @@
       azure_rm_deployment:
         resource_group: "{{ base_rg }}"
         name: AzureBastion4DetectionLab
+        state: absent
+
+    - name: Remove network security group
+      azure_rm_securitygroup:
+        resource_group: "{{ base_rg }}"
+        name: "{{ base_name }}secgroup001"
         state: absent
 
     - name: Remove subnet

@@ -60,11 +60,14 @@
                 value: "{{ base_vn }}"
               vnet-new-or-existing:
                 value: 'existing'
+              bastion-host-name:
+                value: AzureBastion4DetectionLab
               bastion-subnet-ip-prefix:
                 value: '192.168.250.0/24'
               location:
                 value: "{{ azure_location }}"
-            template_link: 'https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/101-azure-bastion/azuredeploy.json'
+            #template_link: 'https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/101-azure-bastion/azuredeploy.json'
+            template_link: 'https://raw.githubusercontent.com/Azure/azure-quickstart-templates/1a86b8e971bff09dae07770c4056351f3c626c6d/101-azure-bastion-nsg/azuredeploy.json'
           register: azurebastion
       when: detectionlab_azurebastion
 
