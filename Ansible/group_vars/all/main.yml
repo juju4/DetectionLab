@@ -3,6 +3,8 @@ ansible_python_interpreter: python3
 
 ip_whitelist:
   - "1.1.1.1"
+ip_whitelist_ssh:
+  - "1.1.1.2"
 azure_location: eastus
 base_name: DetectionLab0
 base_rg: DetectionLab0ansible
@@ -27,7 +29,7 @@ base_nsg_rules:
         access: Allow
         priority: 1001
         direction: Inbound
-        source_address_prefix: "{{ ip_whitelist }}"
+        source_address_prefix: "{{ ip_whitelist_ssh }}"
       - name: Splunk
         protocol: Tcp
         destination_port_range: 8000
